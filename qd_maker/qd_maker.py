@@ -153,7 +153,7 @@ def get_shell(xyz,atoms,shell_rad,core_ctr,Ncore):
 
 input_file = sys.argv[1]
 rad = 9. # in Angstroms
-rad2 = 10
+rad2 = 12.
 
 xyzcoords,atom_names = read_input_xyz(input_file)
 
@@ -180,6 +180,26 @@ print(Ncore," core atoms")
 shell_only_ind_all = np.logical_xor(core_ind_all,shell_ind_all)
 Nshell = np.count_nonzero(shell_only_ind_all)
 print(Nshell,"shell atoms")
+
+# replace shell Se's with S:
+shell_se_ind = np.logical_and(atom_names == 'Se', shell_only_ind_all)
+atom_names[shell_se_ind] = 'S'
+
+print(atom_names[shell_ind_all])
+print(np.count_nonzero(atom_names=='S'))
+
+atom_names_coreshell = atom_names[shell_ind_all]
+xyz_coreshell = xyzcoords[shell_ind_all]
+
+atom_names_coreonly = atom_names[core_ind_all]
+xyz_coreonly = xyzcoords[core_ind_all]
+
+atom_names_shellonly = atom_names[shell_only_ind_all]
+xyz_shellonly = xyzcoords[shell_only_ind_all]
+
+write_xyz('core_only.xyz',atom_names_coreonly,xyz_coreonly)
+write_xyz('shell_only.xyz',atom_names_shellonly,xyz_shellonly)
+write_xyz('coreshell.xyz',atom_names_coreshell,xyz_coreshell)
 
 
 # print(core_ind.shape)
