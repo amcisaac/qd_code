@@ -69,141 +69,110 @@ def get_nn(cdselig_dists,secd_dists,ind_Cd,ind_Se,cutoff,Natoms):
 
     return all_nn,cd_nn_selig,se_nn_cdonly
 
-def build_dot(xyz,atoms,ctr,radius):
-    # print(ctr)
+def build_dot(xyz,atoms,ctr,radius,nncutoff=2):
     xyz_ctr = xyz - ctr
     dist_from_ctr = np.linalg.norm(xyz_ctr,axis=1)
     in_r = dist_from_ctr <= radius
     atoms_in_r = atoms[in_r]
-    # print(atoms_in_r.shape)
-    # print((dist_from_ctr <= radius).shape)
     xyz_in_r = xyz_ctr[in_r]
 
     ind_Cd_r = (atoms_in_r == "Cd")
     ind_Se_r = (atoms_in_r == "Se")
-    ind_CdSe_r = np.logical_or(ind_Cd_r, ind_Se_r)
 
     all_dists,cd_se_dists,se_cd_dists = get_dists(xyz_in_r,ind_Cd_r,ind_Se_r)
     all_nn,cd_nn,se_nn=get_nn(cd_se_dists,se_cd_dists,ind_Cd_r,ind_Se_r,3.0,len(atoms_in_r))
 
-    nncutoff = 2
-
-    cd_coord_ind = cd_nn>=nncutoff
-    se_coord_ind = se_nn>=nncutoff
     coord_ind = all_nn >= nncutoff
 
     coord_ind_all = dist_from_ctr <= radius
     coord_ind_all[in_r] = coord_ind
-    # print(coord_ind_all.shape)
-    # print(np.all(xyz_in_r[coord_ind] == xyz_ctr[coord_ind_all]))
 
-    return coord_ind,xyz_in_r[coord_ind],atoms_in_r[coord_ind],coord_ind_all
+    return coord_ind_all
 
 def get_coreonly(xyz,atoms,radius):
     ctr0 = np.mean(xyz,axis=0)
 
-    i=0
     Ncd = 100
     Nse = 101
     ctr = ctr0
     nit = 0
     while Ncd != Nse and nit < 500:
-        coord_ind,coord_xyz,coord_atoms,coord_ind_all=build_dot(xyz,atoms,ctr,radius)
+        coord_ind_all=build_dot(xyz,atoms,ctr,radius)
 
-        Ncd = np.count_nonzero(coord_atoms=='Cd')
-        Nse = np.count_nonzero(coord_atoms=='Se')
+        Ncd = np.count_nonzero(atoms[coord_ind_all]=='Cd')
+        Nse = np.count_nonzero(atoms[coord_ind_all]=='Se')
 
         print(Nse,' Se atoms')
         print(Ncd,' Cd atoms')
 
         if Ncd != Nse:
             ctr = ctr0 + np.random.random_sample((1,3))
-            # print(Ncd,Nse,ctr0)
+
         nit += 1
 
     if nit == 500:
-        print('Did not converge!')
-    # write_xyz('test_qd_allatoms.xyz',atoms_in_r,xyz_in_r)
+        print('Core build did not converge!')
 
-    # cd_coord_name = atoms_in_r[ind_Cd_r][cd_coord_ind]
-    # se_coord_name = atoms_in_r[ind_Se_r][se_coord_ind]
-
-    # cd_coord_xyz = xyz_in_r[ind_Cd_r][cd_coord_ind]
-    # se_coord_xyz = xyz_in_r[ind_Se_r][se_coord_ind]
-
-    # cdse_atomname = np.concatenate((cd_coord_name,se_coord_name))
-    # cdse_atomname=coord_atoms
+    return coord_ind_all,ctr
 
 
-    # print(cdse_atomname.shape)
-    # cdse_xyz = np.concatenate((cd_coord_xyz,se_coord_xyz),axis=0)
-    # cdse_xyz = coord_xyz
-    # print(cdse_xyz.shape)
+def get_coreshell(xyz,atoms,core_rad,shell_rad):
+    Ncdshell=0
+    Nseshell=1
+    nit2 = 0
+    while Ncdshell != Nseshell and nit2 < 500:
+        core_ind_all,core_ctr=get_coreonly(xyz,atoms,core_rad)
+        Ncore = np.count_nonzero(core_ind_all)/2
+        coreshell_ind_all=build_dot(xyz,atoms,core_ctr,shell_rad)
+
+        Ncdshell = np.count_nonzero(atoms[coreshell_ind_all] == 'Cd') - Ncore
+        Nseshell = np.count_nonzero(atoms[coreshell_ind_all] == 'Se') - Ncore
+
+        print(Ncdshell,' Cd in shell only')
+        print(Nseshell,' Se in shell only')
+
+        nit2 += 1
+
+    if nit2 == 500:
+        print('Shell build did not converge!')
 
 
-    return coord_ind,coord_xyz,coord_atoms,ctr,coord_ind_all
-
-
-def get_shell(xyz,atoms,shell_rad,core_ctr,Ncore):
-    shell_coord_ind,shell_coord_xyz,shell_coord_atoms,coord_ind_all=build_dot(xyz,atoms,core_ctr,shell_rad)
-    print(np.count_nonzero(shell_coord_atoms=='Cd')-Ncore,'Cd atoms in shell')
-    print(np.count_nonzero(shell_coord_atoms=='Se')-Ncore, 'Se atoms in shell')
-
-    return shell_coord_ind,shell_coord_xyz,shell_coord_atoms,coord_ind_all
+    return coreshell_ind_all,core_ind_all,np.logical_xor(coreshell_ind_all,core_ind_all)
 
 input_file = sys.argv[1]
 rad = 9. # in Angstroms
 rad2 = 12.
 
 xyzcoords,atom_names = read_input_xyz(input_file)
+coreshell_ind,core_ind,shell_ind = get_coreshell(xyzcoords,atom_names,rad,rad2)
 
-Ncdshell=0
-Nseshell=1
-nit2 = 0
-while Ncdshell != Nseshell and nit2 < 500:
-    core_ind,core_xyz,core_atomname,ctr,core_ind_all=get_coreonly(xyzcoords,atom_names,rad)
-    shell_ind,shell_xyz,shell_atomname,shell_ind_all=get_shell(xyzcoords,atom_names,rad2,ctr,np.count_nonzero(core_atomname=='Cd'))
-    Ncdshell = np.count_nonzero(shell_atomname == 'Cd')
-    Nseshell = np.count_nonzero(shell_atomname == 'Se')
-    nit2 += 1
-
-if nit2 == 500:
-    print('Did not converge!')
-
-# shell_xyz_ctr = shell_xyz - np.mean(shell_xyz,axis=0)
-# core_xyz_ctr = core_xyz - np.mean(shell_xyz,axis=0)
-# print(core_ind.shape)
-# print(core_ind_all.shape)
-
-Ncore=np.count_nonzero(core_ind_all)
+Ncore=np.count_nonzero(core_ind)
 print(Ncore," core atoms")
-shell_only_ind_all = np.logical_xor(core_ind_all,shell_ind_all)
-Nshell = np.count_nonzero(shell_only_ind_all)
+Nshell = np.count_nonzero(shell_ind)
 print(Nshell,"shell atoms")
+Ntot = np.count_nonzero(coreshell_ind)
+print(Ntot, 'total atoms')
 
 # replace shell Se's with S:
-shell_se_ind = np.logical_and(atom_names == 'Se', shell_only_ind_all)
+shell_se_ind = np.logical_and(atom_names == 'Se', shell_ind)
 atom_names[shell_se_ind] = 'S'
 
-print(atom_names[shell_ind_all])
-print(np.count_nonzero(atom_names=='S'))
+atom_names_coreshell = atom_names[coreshell_ind]
+xyz_coreshell = xyzcoords[coreshell_ind]
+ctr_coreshell = np.mean(xyz_coreshell,axis=0)
+xyz_coreshell = xyz_coreshell - ctr_coreshell # center
 
-atom_names_coreshell = atom_names[shell_ind_all]
-xyz_coreshell = xyzcoords[shell_ind_all]
+atom_names_coreonly = atom_names[core_ind]
+xyz_coreonly = xyzcoords[core_ind] - ctr_coreshell
 
-atom_names_coreonly = atom_names[core_ind_all]
-xyz_coreonly = xyzcoords[core_ind_all]
-
-atom_names_shellonly = atom_names[shell_only_ind_all]
-xyz_shellonly = xyzcoords[shell_only_ind_all]
+atom_names_shellonly = atom_names[shell_ind]
+xyz_shellonly = xyzcoords[shell_ind] - ctr_coreshell
 
 write_xyz('core_only.xyz',atom_names_coreonly,xyz_coreonly)
 write_xyz('shell_only.xyz',atom_names_shellonly,xyz_shellonly)
 write_xyz('coreshell.xyz',atom_names_coreshell,xyz_coreshell)
 
-
-# print(core_ind.shape)
-# write_xyz('test_qd_fullycoor_t.xyz',core_atomname,core_xyz)
+# TO DO: check to make sure no unpassivated se's
 
 # just for checking symmetry
 # ctr_again = cdse_xyz - np.mean(cdse_xyz,axis=0)
