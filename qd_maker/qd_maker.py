@@ -33,19 +33,59 @@ def write_xyz(out_file, atom_names, atom_xyz, comment=''):
     return
 
 def dist_all_points(xyz):
-     # return np array of all distances for each atom
-     dists = [] # list to return with format above
-     for atom in xyz: # xyz = for each cd
-         dist = np.sqrt(np.sum((atom - xyz)**2,axis=1)) # calc dist between cd(i) and all se's
-         dists.append(dist) # add dist to list
+    '''
+    Function that returns the distances between all atoms in an xyz file.
 
-     return np.array(dists)#, np.array(N_nns)
+    Inputs:
+        xyz: numpy array of xyz coordinates of atoms to calculate the
+             distances between. Size (Natoms,3)
+
+    Outputs:
+        dist_array: array of distances between all atoms. Size (Natoms,Natoms).
+                    dist_array[i][j] is the distance between atom i and atom j
+    '''
+    # return np array of all distances for each atom
+    dists = [] # list to return with format above
+    for atom in xyz: # xyz = for each cd
+        dist = np.sqrt(np.sum((atom - xyz)**2,axis=1)) # calc dist between cd(i) and all se's
+        dists.append(dist) # add dist to list
+    dist_array = np.array(dists)
+    return dist_array
 
 def dist_atom12(all_dists,ind_1,ind_2):
+    '''
+    Function that returns an array of distances between two types of atoms.
+
+    Inputs:
+        all_dists: array of distances between all atoms, size (Natoms,Natoms)
+        ind_1: array of boolean indices for first atom type (e.g. all Cd's)
+        ind_2: array of boolean indices for second atom type (e.g. all Se's)
+
+    Outputs:
+        Returns a subset of all_dists that are the distances between atom
+        type 1 and 2. Array of size (Natom1,Natom2)
+    '''
     return all_dists[ind_1].T[ind_2].T
 
 
 def get_dists(QD_xyz,ind_Cd,ind_Se,ind_attach=''):
+    '''
+    Function that calculates the distance between all atoms, as well as
+    the distance between two types of atoms.
+
+    Inputs:
+        QD_xyz: xyz coordinates of all atoms in the QD (array size (Natoms,3))
+        ind_Cd: indices of atom type 1 (e.g. Cd)
+        ind_Se: indices of atom type 2 (e.g. Se)
+
+    Outputs:
+        all_dists: np array with distances between all atoms, size (Natoms, Natoms)
+        cd_se_dists_all: np array with distances between atom type 1 and atom
+                         type 2 (e.g. Cd-Se distances only)
+        se_cd_dists_all: np array with distances between atom type 2 and atom type 1
+                         (e.g. Se-Cd distances) -- same as cd_se_dists_all but indexed
+                         differently
+    '''
     all_dists = dist_all_points(QD_xyz)
     cd_se_dists_all = dist_atom12(all_dists,ind_Cd,ind_Se)
     se_cd_dists_all = dist_atom12(all_dists,ind_Se,ind_Cd)
@@ -53,11 +93,44 @@ def get_dists(QD_xyz,ind_Cd,ind_Se,ind_attach=''):
     return all_dists,cd_se_dists_all,se_cd_dists_all
 
 def num_nn(dist_list,cutoff):
+    '''
+    Function that calculates the number of nearest neighbors that each atom has,
+    based on a cutoff.
+
+    Inputs:
+        dist_list: array of distances between all atoms, size (Natoms,Natoms)
+        cutoff: distance cutoff (in A) below which atoms are considered nearest
+                neighbors/bonded
+
+    Outputs:
+        nn_list: an array of the number of nearest neighbors for each atom. Size (Natoms,).
+                 nn_list[i] = # of nearest neighbors for atom i
+
+    '''
     # returns list of number of NN for each atom
     # could get xyz coordinates from the cd_se_dists_all < cutoff indices i think
-    return np.sum(dist_list < cutoff,axis=1)
+    nn_list = np.sum(dist_list < cutoff,axis=1)
+    return nn_list
 
 def get_nn(cdselig_dists,secd_dists,ind_Cd,ind_Se,cutoff,Natoms):
+    '''
+    Function that calculates the number of nearest neighbors for each atom,
+    based on atom type. E.g. can restrict such that Cd only has Se NN's
+
+    Inputs:
+        cdselig_dists: distances between cd and se (or cd, and se + ligs)
+        secd_dists: distances between se and cd
+        ind_Cd: indices of cd atoms
+        ind_Se: indices of se atoms
+        cutoff: cutoff for NN interaction
+        Natoms: number of atoms in the system
+
+    Outputs:
+        all_nn: an array of the number of nearest neighbors for each atom. Size (Natoms,).
+                nn_list[i] = # of nearest neighbors for atom i
+        cd_nn_selig: an array of the number of nearest neighbors for cd (size (Ncd,))
+        se_nn_cdonly: an array of the number of nearest neighbors for se (size (Nse,))
+    '''
     cd_nn_selig = num_nn(cdselig_dists,cutoff)
     se_nn_cdonly = num_nn(secd_dists,cutoff)
 
