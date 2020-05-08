@@ -69,6 +69,28 @@ def get_nn(cdselig_dists,secd_dists,ind_Cd,ind_Se,cutoff,Natoms):
     return all_nn,cd_nn_selig,se_nn_cdonly
 
 def build_dot(xyz,atoms,ctr,radius,nncutoff=2):
+    '''
+    Function to carve dot from bulk and remove surface atoms
+    with 1 nearest neighbor.
+
+    Inputs:
+        xyz: np array of xyz coordinates from which to carve dot.
+             e.g. a large crystal slab. Size (Natoms,3)
+        atoms: np array of all atom names that correspond to the
+               xyz coordinates. Size (Natoms)
+        ctr: where to center the xyz coordinates.
+        radius: desired radius of the dot (float)
+        nncutoff: cutoff for number of nearest neighbors. any
+                  atom with fewer nearest neighbors will be removed
+                  from the surface.
+
+    Outputs:
+        coord_ind_all: boolean numpy array to index xyz and atoms. True elements
+                       are atoms that are within the radius and have at
+                       least 2 nearest neighbors.
+                       e.g. xyz[coord_ind_all] gives xyz coordinates for the
+                       resulting dot
+    '''
     xyz_ctr = xyz - ctr
     dist_from_ctr = np.linalg.norm(xyz_ctr,axis=1)
     in_r = dist_from_ctr <= radius
@@ -89,6 +111,25 @@ def build_dot(xyz,atoms,ctr,radius,nncutoff=2):
     return coord_ind_all
 
 def get_coreonly(xyz,atoms,radius):
+    '''
+    Function to build a stoichiometric core-only dot.
+
+    Inputs:
+        xyz: np array of xyz coordinates from which to carve dot.
+             e.g. a large crystal slab. Size (Natoms,3)
+        atoms: np array of all atom names that correspond to the
+               xyz coordinates. Size (Natoms)
+        radius: desired radius of the dot (float)
+
+    Outputs:
+        coord_ind_all: boolean numpy array to index xyz and atoms, yielding
+                       a core-only QD that is stoichiometric. True elements
+                       are atoms that are within the radius and have at
+                       least 2 nearest neighbors.
+                       e.g. xyz[coord_ind_all] gives xyz coordinates for the
+                       resulting dot
+        ctr: the coordinates used to center xyz, chosen to produce a stoichiometric dot
+    '''
     ctr0 = np.mean(xyz,axis=0)
 
     Ncd = 100
@@ -116,6 +157,38 @@ def get_coreonly(xyz,atoms,radius):
 
 
 def get_coreshell(xyz,atoms,core_rad,shell_rad):
+    '''
+    Function to build a stoichiometric core-shell dot, which is
+    stoichiometric in the core and the shell.
+
+    Inputs:
+        xyz: np array of xyz coordinates from which to carve dot.
+             e.g. a large crystal slab. Size (Natoms,3)
+        atoms: np array of all atom names that correspond to the
+               xyz coordinates. Size (Natoms)
+        core_rad: desired radius of the dot core (float)
+        shell_rad: desired radius of the overall dot
+
+    Outputs:
+        coreshell_ind_all: boolean numpy array to index xyz and atoms, yielding
+                       a core-shell QD that is stoichiometric in both the core
+                       and the shell. True elements are atoms that are within
+                       shell_rad and have at least 2 nearest neighbors.
+                       e.g. xyz[coreshell_ind_all] gives xyz coordinates for the
+                       final core-shell dot
+        core_ind_all:  boolean numpy array to index xyz and atoms, yielding
+                       the stoichiometric core of the core-shell QD. True elements
+                       are atoms that are within core_rad and have at
+                       least 2 nearest neighbors.
+                       e.g. xyz[core_ind_all] gives xyz coordinates for the
+                       core of the final core-shell dot
+        shell_ind_all:  boolean numpy array to index xyz and atoms, yielding
+                       the stoichiometric shell of the core-shell QD. True elements
+                       are atoms that are not in the core but within shell_rad,
+                       and have at least 2 nearest neighbors.
+                       e.g. xyz[shell_ind_all] gives xyz coordinates for the
+                       shell of the final core-shell dot
+    '''
     Ncdshell=0
     Nseshell=1
     nit2 = 0
@@ -135,10 +208,30 @@ def get_coreshell(xyz,atoms,core_rad,shell_rad):
     if nit2 == 500:
         print('Shell build did not converge!')
 
-
-    return coreshell_ind_all,core_ind_all,np.logical_xor(coreshell_ind_all,core_ind_all)
+    shell_ind_all = np.logical_xor(coreshell_ind_all,core_ind_all)
+    return coreshell_ind_all,core_ind_all,shell_ind_all
 
 def avg_radius(xyz,atoms,atom1,atom2,cutoff=3.0):
+    '''
+    Function to calculate the average radius of a QD
+    (defined as the average distance from the center to
+    the surface atoms), as well as the min and max radius,
+    and standard deviation of distances.
+
+    Inputs:
+        xyz: np array with xyz coordinates of the QD, size (Natoms,3)
+        atoms: np array with the atom names of the QD atoms, size (Natoms,)
+        atom1: name of the first type of atom (str) (e.g. 'Cd')
+        atom2: name of the second type of atom (str) (e.g. 'Se')
+        cutoff: cutoff distance for nearest-neighbor, used to determine surface atoms
+
+    Outputs:
+        avg_dist_surf: average distance from the surface atoms to the center
+        std_dist_surf: standard deviation of surface-center distances
+        max_dist_surf: furthest distance from surface atom to center
+        min_dist_surf: smallest distance from surface atom to center
+
+    '''
     xyz_ctr = xyz - np.mean(xyz,axis=0)
     ind1= (atoms==atom1)
     ind2= (atoms==atom2)
