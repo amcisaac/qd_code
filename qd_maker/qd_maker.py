@@ -45,7 +45,6 @@ def dist_atom12(all_dists,ind_1,ind_2):
     return all_dists[ind_1].T[ind_2].T
 
 
-
 def get_dists(QD_xyz,ind_Cd,ind_Se,ind_attach=''):
     all_dists = dist_all_points(QD_xyz)
     cd_se_dists_all = dist_atom12(all_dists,ind_Cd,ind_Se)
@@ -139,9 +138,27 @@ def get_coreshell(xyz,atoms,core_rad,shell_rad):
 
     return coreshell_ind_all,core_ind_all,np.logical_xor(coreshell_ind_all,core_ind_all)
 
+def avg_radius(xyz,atoms,atom1,atom2,cutoff=3.0):
+    xyz_ctr = xyz - np.mean(xyz,axis=0)
+    ind1= (atoms==atom1)
+    ind2= (atoms==atom2)
+    Nat = len(atoms)
+    all_dists,dist12,dist21 = get_dists(xyz_ctr,ind1,ind2)
+    all_nn,nn1,nn2=get_nn(dist12,dist21,ind1,ind2,cutoff,Nat)
+    surf_xyz = xyz_ctr[all_nn < 4]
+    # print(surf_xyz.shape)
+    surf_dist = np.linalg.norm(surf_xyz,axis=1)
+    # print(surf_dist.shape)
+    avg_dist_surf = np.mean(surf_dist)
+    std_dist_surf = np.std(surf_dist)
+    max_dist_surf = np.max(surf_dist)
+    min_dist_surf = np.min(surf_dist)
+    return avg_dist_surf,std_dist_surf, max_dist_surf, min_dist_surf
+
+
 input_file = sys.argv[1]
 rad = 9. # in Angstroms
-rad2 = 12.
+rad2 = 15.
 
 xyzcoords,atom_names = read_input_xyz(input_file)
 coreshell_ind,core_ind,shell_ind = get_coreshell(xyzcoords,atom_names,rad,rad2)
@@ -168,22 +185,19 @@ xyz_coreonly = xyzcoords[core_ind] - ctr_coreshell
 atom_names_shellonly = atom_names[shell_ind]
 xyz_shellonly = xyzcoords[shell_ind] - ctr_coreshell
 
+dot_r,dot_std,dot_max,dot_min=avg_radius(xyz_coreshell,atom_names_coreshell,'Cd','S')
+core_r,core_std,core_max,core_min=avg_radius(xyz_coreonly,atom_names_coreonly,'Cd','Se')
+print('Core radius: ',core_r)
+print('Core standard dev: ', core_std)
+print('Shell thickness:',dot_r-core_r)
+print('Dot radius: ', dot_r)
+print('Dot standard dev: ', dot_std)
+
 write_xyz('core_only.xyz',atom_names_coreonly,xyz_coreonly)
 write_xyz('shell_only.xyz',atom_names_shellonly,xyz_shellonly)
 write_xyz('coreshell.xyz',atom_names_coreshell,xyz_coreshell)
 
-# TO DO: check to make sure no unpassivated se's
-
-# just for checking symmetry
-# ctr_again = cdse_xyz - np.mean(cdse_xyz,axis=0)
-# ind_cd_final = cdse_atomname == 'Cd'
-# ind_se_final = cdse_atomname == 'Se'
-# all_dists,cd_se_dists,se_cd_dists = get_dists(ctr_again,ind_cd_final,ind_se_final)
-# all_nn,cd_nn,se_nn=get_nn(cd_se_dists,se_cd_dists,ind_cd_final,ind_se_final,3.0,len(cdse_atomname))
-# print('avg radius: ',np.mean(np.linalg.norm(ctr_again,axis=1)))
-# print('avg radius (surf only): ',np.mean(np.linalg.norm(ctr_again[all_nn[np.logical_or(ind_cd_final,ind_se_final)] < 4],axis=1)))
-# print('largest radius: ',np.max(np.linalg.norm(ctr_again,axis=1)))
-# print('std radius (surf only): ',np.std(np.linalg.norm(ctr_again[all_nn[np.logical_or(ind_cd_final,ind_se_final)] < 4],axis=1)))
+# TO DO: check to make sure no unpassivated se's, comment everything, separate functions into different file
 
 
 ## Cd-Se distance histogram
