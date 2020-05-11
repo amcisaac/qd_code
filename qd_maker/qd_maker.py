@@ -44,9 +44,8 @@ def dist_all_points(xyz):
         dist_array: array of distances between all atoms. Size (Natoms,Natoms).
                     dist_array[i][j] is the distance between atom i and atom j
     '''
-    # return np array of all distances for each atom
-    dists = [] # list to return with format above
-    for atom in xyz: # xyz = for each cd
+    dists = [] # list to help build array
+    for atom in xyz: # xyz = for each atom
         dist = np.sqrt(np.sum((atom - xyz)**2,axis=1)) # calc dist between cd(i) and all se's
         dists.append(dist) # add dist to list
     dist_array = np.array(dists)
@@ -215,8 +214,8 @@ def get_coreonly(xyz,atoms,radius):
         Ncd = np.count_nonzero(atoms[coord_ind_all]=='Cd')
         Nse = np.count_nonzero(atoms[coord_ind_all]=='Se')
 
-        print(Nse,' Se atoms')
-        print(Ncd,' Cd atoms')
+        print(Nse,' Se atoms in core')
+        print(Ncd,' Cd atoms in core')
 
         if Ncd != Nse:
             ctr = ctr0 + np.random.random_sample((1,3))
@@ -224,7 +223,7 @@ def get_coreonly(xyz,atoms,radius):
         nit += 1
 
     if nit == 500:
-        print('Core build did not converge!')
+        print('WARNING: Core build did not converge!')
 
     return coord_ind_all,ctr
 
@@ -279,7 +278,7 @@ def get_coreshell(xyz,atoms,core_rad,shell_rad):
         nit2 += 1
 
     if nit2 == 500:
-        print('Shell build did not converge!')
+        print('WARNING: Shell build did not converge!')
 
     shell_ind_all = np.logical_xor(coreshell_ind_all,core_ind_all)
     return coreshell_ind_all,core_ind_all,shell_ind_all
@@ -324,22 +323,26 @@ def avg_radius(xyz,atoms,atom1,atom2,cutoff=3.0):
 
 input_file = sys.argv[1]
 rad = 9. # in Angstroms
-rad2 = 15.
+rad2 = 11.
 
 xyzcoords,atom_names = read_input_xyz(input_file)
 coreshell_ind,core_ind,shell_ind = get_coreshell(xyzcoords,atom_names,rad,rad2)
 
 Ncore=np.count_nonzero(core_ind)
-print(Ncore," core atoms")
 Nshell = np.count_nonzero(shell_ind)
-print(Nshell,"shell atoms")
 Ntot = np.count_nonzero(coreshell_ind)
+
+print('')
+print('DOT INFO:')
+print(Ncore," core atoms")
+print(Nshell,"shell atoms")
 print(Ntot, 'total atoms')
 
-# replace shell Se's with S:
+# REPLACE SHELL SE'S WITH S
 shell_se_ind = np.logical_and(atom_names == 'Se', shell_ind)
 atom_names[shell_se_ind] = 'S'
 
+# GETTING DATA FOR CORE, SHELL, BOTH
 atom_names_coreshell = atom_names[coreshell_ind]
 xyz_coreshell = xyzcoords[coreshell_ind]
 ctr_coreshell = np.mean(xyz_coreshell,axis=0)
@@ -351,6 +354,8 @@ xyz_coreonly = xyzcoords[core_ind] - ctr_coreshell
 atom_names_shellonly = atom_names[shell_ind]
 xyz_shellonly = xyzcoords[shell_ind] - ctr_coreshell
 
+
+# CALCULATING AVG RADIUS
 dot_r,dot_std,dot_max,dot_min=avg_radius(xyz_coreshell,atom_names_coreshell,'Cd','S')
 core_r,core_std,core_max,core_min=avg_radius(xyz_coreonly,atom_names_coreonly,'Cd','Se')
 print('Core radius: ',core_r)
@@ -359,17 +364,29 @@ print('Shell thickness:',dot_r-core_r)
 print('Dot radius: ', dot_r)
 print('Dot standard dev: ', dot_std)
 
+# CHECKING FOR UNPASSIVATED CORE ATOMS
+all_dists,cd_se_dists,se_cd_dists = get_dists(xyz_coreshell,atom_names_coreshell=='Cd',atom_names_coreshell != 'Cd')
+all_nn,cd_nn,se_nn=get_nn(cd_se_dists,se_cd_dists,atom_names_coreshell=='Cd',atom_names_coreshell!='Cd',3.0,len(atom_names_coreshell))
+
+core_cd = np.logical_and(core_ind,atom_names == 'Cd') # want this but shape of total qd
+core_cd_dot=core_cd[coreshell_ind]
+core_se_dot = atom_names_coreshell == 'Se'
+
+core_se_nn = all_nn[core_se_dot]
+core_cd_nn = all_nn[core_cd_dot]
+
+unpass_core_cd = np.count_nonzero(core_cd_nn < 4)
+unpass_core_se = np.count_nonzero(core_se_nn < 4)
+
+if unpass_core_cd+unpass_core_se > 1:
+    print('WARNING: not all surface atoms are passivated! Choose a larger shell')
+    print(unpass_core_cd, 'unpassivated Cd')
+    print(unpass_core_se, 'unpassivated Se')
+
+
+# MAKING XYZ
 write_xyz('core_only.xyz',atom_names_coreonly,xyz_coreonly)
 write_xyz('shell_only.xyz',atom_names_shellonly,xyz_shellonly)
 write_xyz('coreshell.xyz',atom_names_coreshell,xyz_coreshell)
 
 # TO DO: check to make sure no unpassivated se's, comment everything, separate functions into different file
-
-
-## Cd-Se distance histogram
-# plt.figure()
-# plt.title("Cd-Se distance")
-# plt.hist(cd_se_dists.flatten(),bins=800) # crystal
-# # plt.hist(cdse_dists_e.flatten(),bins=800) # optimized
-# plt.xlim(0,4)
-# plt.show()
