@@ -1,6 +1,7 @@
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
+from qd_helper import *
 
 '''
 Script to do geometry analysis of CdSe QD's and determine if any surface atoms are
@@ -8,54 +9,6 @@ undercoordinated.
 
 Usage: python3 geom_analysis_opt_clean.py [xyz file of crystal structure] [xyz file of optimized structure]
 '''
-
-
-def read_input_xyz(input_xyz):
-    '''
-    Function that reads xyz file into arrays
-
-    Inputs: input_xyz -- .xyz file with the QD coordinates
-    Outputs: xyz_coords -- np array with the coordinates of all the atoms (float)
-             atom_names -- np array with the atom names (str)
-    '''
-    xyz_coords = np.loadtxt(input_xyz,skiprows=2,usecols=(1,2,3))
-    atom_names = np.loadtxt(input_xyz,skiprows=2,usecols=(0,),dtype=str)
-    return xyz_coords, atom_names
-
-def write_xyz(out_file, atom_names, atom_xyz, comment=''):
-    '''
-    Function that writes xyz coordinate arrays to .xyz file
-
-    Inputs: out_file   -- name of the file to write coordinates to
-            atom_names -- np array or list of atom names (str)
-            atom_xyz   -- np array or list of atom xyz coordinates (float)
-            comment    -- comment line to write in the xyz file
-
-    Outputs: Writes to xyz_file
-    '''
-    with open(out_file,'w') as xyz_file:
-        xyz_file.write(str(len(atom_names))+'\n')
-        xyz_file.write(comment+'\n')
-        for i, atom in enumerate(atom_names):
-            xyz_file.write(atom +'    '+ str(atom_xyz[i][0])+'    '+str(atom_xyz[i][1])+'    '+str(atom_xyz[i][2])+'\n')
-    return
-
-def dist_all_points(xyz):
-     # return np array of all distances for each atom
-     dists = [] # list to return with format above
-     for atom in xyz: # xyz = for each cd
-         dist = np.sqrt(np.sum((atom - xyz)**2,axis=1)) # calc dist between cd(i) and all se's
-         dists.append(dist) # add dist to list
-
-     return np.array(dists)#, np.array(N_nns)
-
-def dist_atom12(all_dists,ind_1,ind_2):
-    return all_dists[ind_1].T[ind_2].T
-
-def num_nn(dist_list,cutoff):
-    # returns list of number of NN for each atom
-    # could get xyz coordinates from the cd_se_dists_all < cutoff indices i think
-    return np.sum(dist_list < cutoff,axis=1)
 
 def parse_ind(atom_name,lig_attach="N"):
     ind_Cd = (atom_name == "Cd")
@@ -65,35 +18,6 @@ def parse_ind(atom_name,lig_attach="N"):
     ind_selig = np.logical_or(ind_Se,(atom_name == lig_attach))  # NOTE: not robust! only uses N, change for other ligands
     return ind_Cd, ind_Se, ind_CdSe, ind_lig, ind_selig
 
-def nn_analysis(QD_xyz,atom_name,ind1,ind2,cutoff,nn_cutoff):
-    dists,nn=nearest_neighbor_cdse(QD_xyz[ind1], QD_xyz[ind2], cutoff)
-    undercoord_ind = nn < nn_cutoff
-    undercoord_xyz = QD_xyz[ind1][undercoord_ind]
-    undercoord_name = atom_name[ind1][undercoord_ind]
-    return dists,nn,undercoord_ind,undercoord_xyz,undercoord_name
-
-def get_dists(QD_xyz,ind_Cd,ind_Se,ind_attach):
-    all_dists = dist_all_points(QD_xyz)
-    ind_selig = np.logical_or(ind_Se,ind_attach)
-    # distances separated into different atoms
-    # want these for histograms
-    cd_se_dists_all = dist_atom12(all_dists,ind_Cd,ind_Se)
-    cd_lig_dists_all = dist_atom12(all_dists,ind_Cd,ind_attach)
-    cd_se_lig_dists_all = dist_atom12(all_dists,ind_Cd,ind_selig)
-    se_cd_dists_all = dist_atom12(all_dists,ind_Se,ind_Cd)
-
-    return all_dists,cd_se_dists_all,cd_lig_dists_all,cd_se_lig_dists_all,se_cd_dists_all
-
-def get_nn(cdselig_dists,secd_dists,ind_Cd,ind_Se,ind_lig,cutoff,Natoms):
-    cd_nn_selig = num_nn(cdselig_dists,cutoff)
-    se_nn_cdonly = num_nn(secd_dists,cutoff)
-
-    all_nn = np.zeros(Natoms)
-    all_nn[ind_Cd]=cd_nn_selig # using all nn for cd
-    all_nn[ind_Se]=se_nn_cdonly # using just cd for se
-    all_nn[ind_lig]=100 # set these to very high to avoid any weirdness
-
-    return all_nn,cd_nn_selig,se_nn_cdonly
 ###
 ### USER SPECIFIED INFO
 ###
@@ -122,7 +46,7 @@ ind_attach = (atom_name_start == lig_atom)
 # ANALYZING STARTING GEOMETRY
 all_dists_s,cdse_dists_s,cdlig_dists_s,cdselig_dists_s,secd_dists_s = get_dists(QD_xyz_start,ind_Cd,ind_Se,ind_attach)
 
-all_nn_s,cd_nn_selig_s,se_nn_cd_s = get_nn(cdselig_dists_s,secd_dists_s,ind_Cd,ind_Se,ind_lig,cutoff,Natoms)
+all_nn_s,cd_nn_selig_s,se_nn_cd_s = get_nn(cdselig_dists_s,secd_dists_s,ind_Cd,ind_Se,cutoff,Natoms,ind_lig)
 
 # print(cd_nn_selig_s)
 cd_underc_ind_s = cd_nn_selig_s<nncutoff
@@ -140,7 +64,7 @@ print('Undercoordinated Se:',se_nn_cd_s[se_underc_ind_s])
 # ENDING GEOMETRY
 all_dists_e,cdse_dists_e,cdlig_dists_e,cdselig_dists_e,secd_dists_e = get_dists(QD_xyz_end,ind_Cd,ind_Se,ind_attach)
 
-all_nn_e,cd_nn_selig_e,se_nn_cd_e = get_nn(cdselig_dists_e,secd_dists_e,ind_Cd,ind_Se,ind_lig,cutoff,Natoms)
+all_nn_e,cd_nn_selig_e,se_nn_cd_e = get_nn(cdselig_dists_e,secd_dists_e,ind_Cd,ind_Se,cutoff,Natoms,ind_lig)
 cd_underc_ind_e = cd_nn_selig_e<nncutoff
 se_underc_ind_e = se_nn_cd_e<nncutoff
 
@@ -174,7 +98,7 @@ beg_e = '.'.join(QD_file_end.split('.')[0:-1])
 
 # ambiguous zone:
 # looks at atoms that change their number of nearest neighbors based on cutoff distance
-all_nn_e2,cd_nn_selig_e2,se_nn_cd_e2 = get_nn(cdselig_dists_e,secd_dists_e,ind_Cd,ind_Se,ind_lig,cutoff2,Natoms)
+all_nn_e2,cd_nn_selig_e2,se_nn_cd_e2 = get_nn(cdselig_dists_e,secd_dists_e,ind_Cd,ind_Se,cutoff2,Natoms,ind_lig)
 cd_underc_ind_e2 = cd_nn_selig_e2<nncutoff
 se_underc_ind_e2 = se_nn_cd_e2<nncutoff
 
@@ -236,20 +160,20 @@ se_neg_xyz = QD_xyz_end[ind_Se][nn_change_se_neg]
 # UNCOMMENT TO PLOT A HISTOGRAM OF NEAREST NEIGHBOR DISTANCES
 
 ## Cd-Se distance histogram
-plt.figure()
-plt.title("Cd-Se distance")
-plt.hist(cdse_dists_s.flatten(),bins=800) # crystal
-plt.hist(cdse_dists_e.flatten(),bins=800) # optimized
-plt.xlim(0,4)
-plt.show()
-
-# Cd-ligand distance histogram
-plt.figure()
-plt.title("Cd-ligand distance")
-plt.hist(cdlig_dists_s.flatten(),bins=800)
-plt.hist(cdlig_dists_e.flatten(),bins=800)
-plt.xlim(0,4)
-plt.show()
+# plt.figure()
+# plt.title("Cd-Se distance")
+# plt.hist(cdse_dists_s.flatten(),bins=800) # crystal
+# plt.hist(cdse_dists_e.flatten(),bins=800) # optimized
+# plt.xlim(0,4)
+# plt.show()
+#
+# # Cd-ligand distance histogram
+# plt.figure()
+# plt.title("Cd-ligand distance")
+# plt.hist(cdlig_dists_s.flatten(),bins=800)
+# plt.hist(cdlig_dists_e.flatten(),bins=800)
+# plt.xlim(0,4)
+# plt.show()
 
 # #
 # # # plt.figure()
