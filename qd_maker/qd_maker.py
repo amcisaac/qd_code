@@ -46,8 +46,8 @@ def dist_all_points(xyz):
     '''
     dists = [] # list to help build array
     for atom in xyz: # xyz = for each atom
-        dist = np.sqrt(np.sum((atom - xyz)**2,axis=1)) # calc dist between cd(i) and all se's
-        dists.append(dist) # add dist to list
+        dist = np.sqrt(np.sum((atom - xyz)**2,axis=1)) # calc dist between atom(i) and all others
+        dists.append(dist)
     dist_array = np.array(dists)
     return dist_array
 
@@ -106,8 +106,6 @@ def num_nn(dist_list,cutoff):
                  nn_list[i] = # of nearest neighbors for atom i
 
     '''
-    # returns list of number of NN for each atom
-    # could get xyz coordinates from the cd_se_dists_all < cutoff indices i think
     nn_list = np.sum(dist_list < cutoff,axis=1)
     return nn_list
 
@@ -163,20 +161,24 @@ def build_dot(xyz,atoms,ctr,radius,nncutoff=2):
                        e.g. xyz[coord_ind_all] gives xyz coordinates for the
                        resulting dot
     '''
-    xyz_ctr = xyz - ctr
+    xyz_ctr = xyz - ctr # center the xyz coordinates
     dist_from_ctr = np.linalg.norm(xyz_ctr,axis=1)
-    in_r = dist_from_ctr <= radius
+    in_r = dist_from_ctr <= radius # boolean indices for atoms within given radius
     atoms_in_r = atoms[in_r]
     xyz_in_r = xyz_ctr[in_r]
 
-    ind_Cd_r = (atoms_in_r == "Cd")
+    ind_Cd_r = (atoms_in_r == "Cd") #boolean indices for cd's within radius
     ind_Se_r = (atoms_in_r == "Se")
 
+    # getting distances between all atoms
     all_dists,cd_se_dists,se_cd_dists = get_dists(xyz_in_r,ind_Cd_r,ind_Se_r)
+    # getting nearest neighbor info
     all_nn,cd_nn,se_nn=get_nn(cd_se_dists,se_cd_dists,ind_Cd_r,ind_Se_r,3.0,len(atoms_in_r))
 
+    # boolean indices of atoms that are correctly coordinated
     coord_ind = all_nn >= nncutoff
 
+    # reshaping coord_ind to be the shape of the input xyz
     coord_ind_all = dist_from_ctr <= radius
     coord_ind_all[in_r] = coord_ind
 
@@ -202,21 +204,24 @@ def get_coreonly(xyz,atoms,radius):
                        resulting dot
         ctr: the coordinates used to center xyz, chosen to produce a stoichiometric dot
     '''
-    ctr0 = np.mean(xyz,axis=0)
+    ctr0 = np.mean(xyz,axis=0) # center at the avg coordinate of the slab
 
     Ncd = 100
     Nse = 101
     ctr = ctr0
     nit = 0
     while Ncd != Nse and nit < 500:
+        # try building a dot at the actual center
         coord_ind_all=build_dot(xyz,atoms,ctr,radius)
 
+        # count # Cd, Se
         Ncd = np.count_nonzero(atoms[coord_ind_all]=='Cd')
         Nse = np.count_nonzero(atoms[coord_ind_all]=='Se')
 
         print(Nse,' Se atoms in core')
         print(Ncd,' Cd atoms in core')
 
+        # if not stoichiometric, move the center and try again
         if Ncd != Nse:
             ctr = ctr0 + np.random.random_sample((1,3))
 
@@ -265,10 +270,14 @@ def get_coreshell(xyz,atoms,core_rad,shell_rad):
     Nseshell=1
     nit2 = 0
     while Ncdshell != Nseshell and nit2 < 500:
+        # build the core
         core_ind_all,core_ctr=get_coreonly(xyz,atoms,core_rad)
         Ncore = np.count_nonzero(core_ind_all)/2
+        # try building a shell at the same center as the core
         coreshell_ind_all=build_dot(xyz,atoms,core_ctr,shell_rad)
 
+        #count # cd, se in the shell. if they aren't equal,
+        #start over, rebuilding the core & getting a new center for the shell
         Ncdshell = np.count_nonzero(atoms[coreshell_ind_all] == 'Cd') - Ncore
         Nseshell = np.count_nonzero(atoms[coreshell_ind_all] == 'Se') - Ncore
 
@@ -280,6 +289,7 @@ def get_coreshell(xyz,atoms,core_rad,shell_rad):
     if nit2 == 500:
         print('WARNING: Shell build did not converge!')
 
+    # boolean indices of shell atoms only
     shell_ind_all = np.logical_xor(coreshell_ind_all,core_ind_all)
     return coreshell_ind_all,core_ind_all,shell_ind_all
 
@@ -304,26 +314,36 @@ def avg_radius(xyz,atoms,atom1,atom2,cutoff=3.0):
         min_dist_surf: smallest distance from surface atom to center
 
     '''
-    xyz_ctr = xyz - np.mean(xyz,axis=0)
+    xyz_ctr = xyz - np.mean(xyz,axis=0) # center the dot
+
+    # get indices for the 2 atom types
     ind1= (atoms==atom1)
     ind2= (atoms==atom2)
     Nat = len(atoms)
+
+    # get nearest neighbors
     all_dists,dist12,dist21 = get_dists(xyz_ctr,ind1,ind2)
     all_nn,nn1,nn2=get_nn(dist12,dist21,ind1,ind2,cutoff,Nat)
+
+    # determine surface atoms by # nearest neighbors
     surf_xyz = xyz_ctr[all_nn < 4]
-    # print(surf_xyz.shape)
+
+    # distance of surface atoms to center
     surf_dist = np.linalg.norm(surf_xyz,axis=1)
-    # print(surf_dist.shape)
+
+    # statistics on surface distances
     avg_dist_surf = np.mean(surf_dist)
     std_dist_surf = np.std(surf_dist)
     max_dist_surf = np.max(surf_dist)
     min_dist_surf = np.min(surf_dist)
     return avg_dist_surf,std_dist_surf, max_dist_surf, min_dist_surf
 
-
-input_file = sys.argv[1]
-rad = 9. # in Angstroms
-rad2 = 11.
+###
+# USER SPECIFIED INFO
+###
+input_file = sys.argv[1] # xyz file of crystal slab
+rad = 9. # core radius, in Angstroms
+rad2 = 11. # shell radius, in Angstroms
 
 xyzcoords,atom_names = read_input_xyz(input_file)
 coreshell_ind,core_ind,shell_ind = get_coreshell(xyzcoords,atom_names,rad,rad2)
@@ -346,31 +366,31 @@ atom_names[shell_se_ind] = 'S'
 atom_names_coreshell = atom_names[coreshell_ind]
 xyz_coreshell = xyzcoords[coreshell_ind]
 ctr_coreshell = np.mean(xyz_coreshell,axis=0)
-xyz_coreshell = xyz_coreshell - ctr_coreshell # center
+xyz_coreshell = xyz_coreshell - ctr_coreshell # center at total dot center
 
 atom_names_coreonly = atom_names[core_ind]
-xyz_coreonly = xyzcoords[core_ind] - ctr_coreshell
+xyz_coreonly = xyzcoords[core_ind] - ctr_coreshell # center at total dot center
 
 atom_names_shellonly = atom_names[shell_ind]
-xyz_shellonly = xyzcoords[shell_ind] - ctr_coreshell
+xyz_shellonly = xyzcoords[shell_ind] - ctr_coreshell # center at total dot center
 
 
 # CALCULATING AVG RADIUS
 dot_r,dot_std,dot_max,dot_min=avg_radius(xyz_coreshell,atom_names_coreshell,'Cd','S')
 core_r,core_std,core_max,core_min=avg_radius(xyz_coreonly,atom_names_coreonly,'Cd','Se')
-print('Core radius: ',core_r)
+print('Core radius: ',core_r,'; requested ',rad)
 print('Core standard dev: ', core_std)
 print('Shell thickness:',dot_r-core_r)
-print('Dot radius: ', dot_r)
+print('Dot radius: ', dot_r, '; reqeuested, ',rad2)
 print('Dot standard dev: ', dot_std)
 
 # CHECKING FOR UNPASSIVATED CORE ATOMS
 all_dists,cd_se_dists,se_cd_dists = get_dists(xyz_coreshell,atom_names_coreshell=='Cd',atom_names_coreshell != 'Cd')
 all_nn,cd_nn,se_nn=get_nn(cd_se_dists,se_cd_dists,atom_names_coreshell=='Cd',atom_names_coreshell!='Cd',3.0,len(atom_names_coreshell))
 
-core_cd = np.logical_and(core_ind,atom_names == 'Cd') # want this but shape of total qd
-core_cd_dot=core_cd[coreshell_ind]
-core_se_dot = atom_names_coreshell == 'Se'
+core_cd = np.logical_and(core_ind,atom_names == 'Cd') # boolean indices for core cd's, shape of crystal slab
+core_cd_dot=core_cd[coreshell_ind] # boolean indices for core cd's, shape of core-shell dot
+core_se_dot = atom_names_coreshell == 'Se' # boolean indices for core se's (easier b/c shell is S)
 
 core_se_nn = all_nn[core_se_dot]
 core_cd_nn = all_nn[core_cd_dot]
