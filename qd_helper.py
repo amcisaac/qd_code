@@ -27,7 +27,7 @@ def write_xyz(out_file, atom_names, atom_xyz, comment=''):
         xyz_file.write(str(len(atom_names))+'\n')
         xyz_file.write(comment+'\n')
         for i, atom in enumerate(atom_names):
-            xyz_file.write(atom +'    '+ str(atom_xyz[i][0])+'    '+str(atom_xyz[i][1])+'    '+str(atom_xyz[i][2])+'\n')
+            xyz_file.write('{:<2s}    {:< 14.8f}{:< 14.8f}{:< 14.8f}\n'.format(atom,atom_xyz[i][0],atom_xyz[i][1],atom_xyz[i][2]))
     return
 
 def dist_all_points(xyz):

@@ -3,6 +3,28 @@ import sys
 from matplotlib import pyplot as plt
 from qd_helper import *
 
+'''
+Script to build a core-shell QD from a slab of bulk crystal material.
+
+Usage: python3 qd_maker.py [bulk crystal xyz coordinates]
+
+Please specify a radius and method below.
+'''
+
+############
+#
+# USER SPECIFIED INFO
+#
+############
+
+input_file = sys.argv[1] # xyz file of crystal slab
+rad = 9. # core radius, in Angstroms
+rad2 = 12. # shell radius, in Angstroms
+n_ctr = 6  # specifies method of choosing the center -- 6 is middle of cage,
+              # 3 is middle of plane, 1 is middle of bond, 'cd' is on cd, 'se' is on se
+              # 0 is center of xyz, 'random' will determine the center randomly to find a stoichiometric dot
+
+
 def build_dot(xyz,atoms,ctr,radius,nncutoff=2):
     '''
     Function to carve dot from bulk and remove surface atoms
@@ -49,7 +71,41 @@ def build_dot(xyz,atoms,ctr,radius,nncutoff=2):
 
     return coord_ind_all
 
-def get_coreonly(xyz,atoms,radius):
+def ctr_qd(xyz,atoms,n_ctr):
+    '''
+    Function that determines the center of the QD.
+
+    Inputs:
+        xyz: xyz coordinates for the crystal slab (np array, size (Natoms,3))
+        atoms: list of atom names that correspond to xyz
+        n_ctr: method of centering.
+               n_ctr = 0 or 'random' returns the average coordinate from xyz
+               n_ctr = 'Cd' or 'Se' centers on one atom
+               n_ctr = 1 centers the atom in the middle of a cd-se bond
+               n_ctr = 3 centers the atom in the middle of a cd3-se3 plane
+               n_ctr = 6 centers the atom in the middle of the 3d hexagonal cage
+    '''
+
+    xtal_ctr = np.mean(xyz,axis=0) # center at the avg coordinate of the slab
+    if n_ctr == 0 or n_ctr=='random':
+        return xtal_ctr
+    elif n_ctr == 'Cd' or n_ctr == 'Se':
+       dist_from_ctr=np.linalg.norm(xyz-xtal_ctr,axis=1)
+       ctr_cdi = np.argpartition(dist_from_ctr[atoms==n_ctr],1)[:1]
+       ctr_cd = xyz[atoms==n_ctr][ctr_cdi]
+       return ctr_cd
+    else:
+        dist_from_ctr=np.linalg.norm(xyz-xtal_ctr,axis=1)
+        ctr_cdi = np.argpartition(dist_from_ctr[atoms=='Cd'],n_ctr)[:n_ctr]
+        ctr_sei = np.argpartition(dist_from_ctr[atoms=='Se'],n_ctr)[:n_ctr]
+        # print(ctr_ind)
+        ctr_cd = xyz[atoms=='Cd'][ctr_cdi]
+        ctr_se = xyz[atoms=='Se'][ctr_sei]
+        ctr_cdse_xyz = np.concatenate((ctr_cd,ctr_se),axis=0)
+        ctr_cdse = np.mean(ctr_cdse_xyz,axis=0)
+        return ctr_cdse
+
+def get_coreonly(xyz,atoms,radius,n_ctr):
     '''
     Function to build a stoichiometric core-only dot.
 
@@ -59,7 +115,18 @@ def get_coreonly(xyz,atoms,radius):
         atoms: np array of all atom names that correspond to the
                xyz coordinates. Size (Natoms)
         radius: desired radius of the dot (float)
-
+        n_ctr: determines how to calculate the center of the dot & how to find a stoichiometric dot.
+               n_ctr = 'random' uses random centers to build a stoichiometric dot
+               n_ctr = 0 centers the dot at the center of the xyz coordinates,
+                        and finds a stoichiometric dot by increasing the radius
+               n_ctr = 'Cd' or 'Se' centers on one atom,
+                        and finds a stoichiometric dot by increasing the radius
+               n_ctr = 1 centers the atom in the middle of a cd-se bond,
+                        and finds a stoichiometric dot by increasing the radius
+               n_ctr = 3 centers the atom in the middle of a cd3se3 plane,
+                        and finds a stoichiometric dot by increasing the radius
+               n_ctr = 6 centers the atom in the middle of the 3d hexagonal cage,
+                        and finds a stoichiometric dot by increasing the radius
     Outputs:
         coord_ind_all: boolean numpy array to index xyz and atoms, yielding
                        a core-only QD that is stoichiometric. True elements
@@ -69,13 +136,15 @@ def get_coreonly(xyz,atoms,radius):
                        resulting dot
         ctr: the coordinates used to center xyz, chosen to produce a stoichiometric dot
     '''
-    ctr0 = np.mean(xyz,axis=0) # center at the avg coordinate of the slab
+
+    ctr0=ctr_qd(xyz,atoms,n_ctr)
 
     Ncd = 100
     Nse = 101
-    ctr = ctr0
     nit = 0
-    while Ncd != Nse and nit < 500:
+    it_max = 500
+    ctr = ctr0
+    while Ncd != Nse and nit < it_max:
         # try building a dot at the actual center
         coord_ind_all=build_dot(xyz,atoms,ctr,radius)
 
@@ -86,19 +155,22 @@ def get_coreonly(xyz,atoms,radius):
         print(Nse,' Se atoms in core')
         print(Ncd,' Cd atoms in core')
 
-        # if not stoichiometric, move the center and try again
+        # if not stoichiometric, change the center (if n_ctr = random), or increase the radius (else)
         if Ncd != Nse:
-            ctr = ctr0 + np.random.random_sample((1,3))
+            if n_ctr == 'random':
+                ctr = ctr0 + np.random.random_sample((1,3))
+            else:
+                radius = radius + 0.05
 
         nit += 1
 
-    if nit == 500:
+    if nit == it_max:
         print('WARNING: Core build did not converge!')
 
     return coord_ind_all,ctr
 
 
-def get_coreshell(xyz,atoms,core_rad,shell_rad):
+def get_coreshell(xyz,atoms,core_rad,shell_rad,n_ctr):
     '''
     Function to build a stoichiometric core-shell dot, which is
     stoichiometric in the core and the shell.
@@ -136,7 +208,7 @@ def get_coreshell(xyz,atoms,core_rad,shell_rad):
     nit2 = 0
     while Ncdshell != Nseshell and nit2 < 500:
         # build the core
-        core_ind_all,core_ctr=get_coreonly(xyz,atoms,core_rad)
+        core_ind_all,core_ctr=get_coreonly(xyz,atoms,core_rad,n_ctr)
         Ncore = np.count_nonzero(core_ind_all)/2
         # try building a shell at the same center as the core
         coreshell_ind_all=build_dot(xyz,atoms,core_ctr,shell_rad)
@@ -150,8 +222,11 @@ def get_coreshell(xyz,atoms,core_rad,shell_rad):
         print(Nseshell,' Se in shell only')
 
         nit2 += 1
+        if Ncdshell < 0:
+            print('WARNING: core radius exceeds shell radius')
+            break
 
-    if nit2 == 500:
+    if nit2 == 500 or Ncdshell < 0:
         print('WARNING: Shell build did not converge!')
 
     # boolean indices of shell atoms only
@@ -203,15 +278,10 @@ def avg_radius(xyz,atoms,atom1,atom2,cutoff=3.0):
     min_dist_surf = np.min(surf_dist)
     return avg_dist_surf,std_dist_surf, max_dist_surf, min_dist_surf
 
-###
-# USER SPECIFIED INFO
-###
-input_file = sys.argv[1] # xyz file of crystal slab
-rad = 9. # core radius, in Angstroms
-rad2 = 11. # shell radius, in Angstroms
+
 
 xyzcoords,atom_names = read_input_xyz(input_file)
-coreshell_ind,core_ind,shell_ind = get_coreshell(xyzcoords,atom_names,rad,rad2)
+coreshell_ind,core_ind,shell_ind = get_coreshell(xyzcoords,atom_names,rad,rad2,n_ctr)
 
 Ncore=np.count_nonzero(core_ind)
 Nshell = np.count_nonzero(shell_ind)
@@ -222,6 +292,7 @@ print('DOT INFO:')
 print(Ncore," core atoms")
 print(Nshell,"shell atoms")
 print(Ntot, 'total atoms')
+
 
 # REPLACE SHELL SE'S WITH S
 shell_se_ind = np.logical_and(atom_names == 'Se', shell_ind)
@@ -248,6 +319,7 @@ print('Core standard dev: ', core_std)
 print('Shell thickness:',dot_r-core_r)
 print('Dot radius: ', dot_r, '; reqeuested, ',rad2)
 print('Dot standard dev: ', dot_std)
+comment = 'r1 = {}A, r2 = {}A, r_c = {}A, std_c = {}, r_tot = {}A, std_tot = {}'.format(rad,rad2,np.around(core_r,3),np.around(core_std,3),np.around(dot_r,3),np.around(dot_std,3))
 
 # CHECKING FOR UNPASSIVATED CORE ATOMS
 all_dists,cd_se_dists,se_cd_dists = get_dists(xyz_coreshell,atom_names_coreshell=='Cd',atom_names_coreshell != 'Cd')
@@ -270,8 +342,6 @@ if unpass_core_cd+unpass_core_se > 1:
 
 
 # MAKING XYZ
-write_xyz('core_only.xyz',atom_names_coreonly,xyz_coreonly)
-write_xyz('shell_only.xyz',atom_names_shellonly,xyz_shellonly)
-write_xyz('coreshell.xyz',atom_names_coreshell,xyz_coreshell)
-
-# TO DO: check to make sure no unpassivated se's, comment everything, separate functions into different file
+write_xyz('core_only.xyz',atom_names_coreonly,xyz_coreonly,comment)
+write_xyz('shell_only.xyz',atom_names_shellonly,xyz_shellonly,comment)
+write_xyz('coreshell.xyz',atom_names_coreshell,xyz_coreshell,comment)
