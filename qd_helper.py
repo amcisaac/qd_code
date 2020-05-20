@@ -154,6 +154,24 @@ def get_nn(cdselig_dists,secd_dists,ind_Cd,ind_Se,cutoff,Natoms,ind_lig=False):
     return all_nn,cd_nn_selig,se_nn_cdonly
 
 def nn_histogram(xyz,ind_Cd,ind_Se,label1='',ind_attach=False,xyz2=False,label2=''):
+    '''
+    Function that makes a histogram of all nearest-neighbor distances in a QD (or comparing multiple!).
+
+    Inputs:
+        xyz: np array of xyz coordinates for the QD. shape (Natoms,3)
+        ind_Cd: boolean array with the indices of Cd atoms in xyz
+        ind_Se: boolean array with the indices of Se atoms in xyz
+        label1: (optional) label for the legend of the histogram for xyz
+        ind_attach: (optional) boolean array with the indices of attaching
+                    ligand atoms in xyz (e.g. N for MeNH2)
+        xyz2: (optional) np array of xyz coordinates for another QD to compare
+        label2: (optional) label for the legend of the histogram for xyz2
+
+    Outputs:
+        plots a histogram of Cd-Se distances. If ind_attach is true, also
+        plots histogram of Cd-ligand distances.
+    '''
+
     all_dists,cdse_dists,cdlig_dists,cdselig_dists,secd_dists = get_dists(xyz,ind_Cd,ind_Se,ind_attach)
     if np.any(xyz2):
         all_dists2,cdse_dists2,cdlig_dists2,cdselig_dists2,secd_dists2 = get_dists(xyz2,ind_Cd,ind_Se,ind_attach)
@@ -167,13 +185,14 @@ def nn_histogram(xyz,ind_Cd,ind_Se,label1='',ind_attach=False,xyz2=False,label2=
     plt.xlim(0,4)
     # plt.show()
     #
-    # # Cd-ligand distance histogram
-    plt.figure()
-    plt.title("Cd-ligand distance")
-    plt.hist(cdlig_dists.flatten(),bins=800,label=label1)
-    if np.any(xyz2): plt.hist(cdlig_dists2.flatten(),bins=800,label=label2)
-    if label2 !='': plt.legend()
-    plt.xlim(0,4)
+    if ind_attach:
+        # # Cd-ligand distance histogram
+        plt.figure()
+        plt.title("Cd-ligand distance")
+        plt.hist(cdlig_dists.flatten(),bins=800,label=label1)
+        if np.any(xyz2): plt.hist(cdlig_dists2.flatten(),bins=800,label=label2)
+        if label2 !='': plt.legend()
+        plt.xlim(0,4)
     plt.show()
 
     return
