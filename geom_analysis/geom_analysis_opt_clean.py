@@ -19,6 +19,28 @@ def parse_ind(atom_name,lig_attach="N"):
     ind_selig = np.logical_or(ind_Se,(atom_name == lig_attach))  # NOTE: not robust! only uses N, change for other ligands
     return ind_Cd, ind_Se, ind_CdSe, ind_lig, ind_selig
 
+def get_underc_index(xyz,ind_Cd,ind_Se,ind_lig,ind_attach,cutoff,nncutoff,verbose=False):
+    all_dists,cdse_dists,cdlig_dists,cdselig_dists,secd_dists = get_dists(xyz,ind_Cd,ind_Se,ind_attach)
+    Natoms = len(ind_Cd)
+    all_nn,cd_nn_selig,se_nn_cd = get_nn(cdselig_dists,secd_dists,ind_Cd,ind_Se,cutoff,Natoms,ind_lig)
+
+    cd_underc_ind = cd_nn_selig<nncutoff
+    se_underc_ind = se_nn_cd<nncutoff
+
+    if verbose:
+        print('Undercoordinated Cd:',cd_nn_selig[cd_underc_ind])
+        print('Undercoordinated Se:',se_nn_cd[se_underc_ind])
+    return cd_underc_ind,se_underc_ind
+
+def write_underc_xyz(xyz,atom_name,ind_Cd,ind_Se,cd_underc_ind,se_underc_ind,filestart,comment):
+    cd_underc_name = atom_name[ind_Cd][cd_underc_ind]
+    se_underc_name = atom_name[ind_Se][se_underc_ind]
+    cd_underc_xyz = xyz[ind_Cd][cd_underc_ind]
+    se_underc_xyz = xyz[ind_Se][se_underc_ind]
+
+    write_xyz(filestart+'_se.xyz', se_underc_name, se_underc_xyz,comment)
+    write_xyz(filestart+'_cd.xyz', cd_underc_name, cd_underc_xyz,comment)
+    return
 ###
 ### USER SPECIFIED INFO
 ###
@@ -34,7 +56,7 @@ QD_file_end=sys.argv[2]   # QD optimized xyz file
 
 QD_xyz_start,atom_name_start = read_input_xyz(QD_file_start)
 QD_xyz_end,atom_name_end = read_input_xyz(QD_file_end)
-Natoms = len(atom_name_start)
+# Natoms = len(atom_name_start)
 
 if not np.all(atom_name_start==atom_name_end):
     print("WARNING: atom ordering changed in optimization!")
@@ -44,61 +66,49 @@ if not np.all(atom_name_start==atom_name_end):
 ind_Cd, ind_Se, ind_CdSe, ind_lig, ind_selig=parse_ind(atom_name_start,lig_atom)
 ind_attach = (atom_name_start == lig_atom)
 
+####
+#
 # ANALYZING STARTING GEOMETRY
-all_dists_s,cdse_dists_s,cdlig_dists_s,cdselig_dists_s,secd_dists_s = get_dists(QD_xyz_start,ind_Cd,ind_Se,ind_attach)
-
-all_nn_s,cd_nn_selig_s,se_nn_cd_s = get_nn(cdselig_dists_s,secd_dists_s,ind_Cd,ind_Se,cutoff,Natoms,ind_lig)
-
-# print(cd_nn_selig_s)
-cd_underc_ind_s = cd_nn_selig_s<nncutoff
-se_underc_ind_s = se_nn_cd_s<nncutoff
-
-cd_underc_name_s = atom_name_start[ind_Cd][cd_underc_ind_s]
-se_underc_name_s = atom_name_start[ind_Se][se_underc_ind_s]
-cd_underc_xyz_s = QD_xyz_start[ind_Cd][cd_underc_ind_s]
-se_underc_xyz_s = QD_xyz_start[ind_Se][se_underc_ind_s]
-
-print('Starting geometry')
-print('Undercoordinated Cd:',cd_nn_selig_s[cd_underc_ind_s])
-print('Undercoordinated Se:',se_nn_cd_s[se_underc_ind_s])
-
-# ENDING GEOMETRY
-all_dists_e,cdse_dists_e,cdlig_dists_e,cdselig_dists_e,secd_dists_e = get_dists(QD_xyz_end,ind_Cd,ind_Se,ind_attach)
-
-all_nn_e,cd_nn_selig_e,se_nn_cd_e = get_nn(cdselig_dists_e,secd_dists_e,ind_Cd,ind_Se,cutoff,Natoms,ind_lig)
-cd_underc_ind_e = cd_nn_selig_e<nncutoff
-se_underc_ind_e = se_nn_cd_e<nncutoff
-
-print('Optimized Geometry')
-print('Undercoordinated Cd:',cd_nn_selig_e[cd_underc_ind_e])
-print('Undercoordinated Se:',se_nn_cd_e[se_underc_ind_e])
-
-cd_underc_name_e = atom_name_end[ind_Cd][cd_underc_ind_e]
-se_underc_name_e = atom_name_end[ind_Se][se_underc_ind_e]
-cd_underc_xyz_e = QD_xyz_end[ind_Cd][cd_underc_ind_e]
-se_underc_xyz_e = QD_xyz_end[ind_Se][se_underc_ind_e]
-
-# atoms in ending structure that started width 2
-cd_underc_name_es = atom_name_end[ind_Cd][cd_underc_ind_s]
-se_underc_name_es = atom_name_end[ind_Se][se_underc_ind_s]
-cd_underc_xyz_es = QD_xyz_end[ind_Cd][cd_underc_ind_s]
-se_underc_xyz_es = QD_xyz_end[ind_Se][se_underc_ind_s]
+#
+####
 
 beg_s = '.'.join(QD_file_start.split('.')[0:-1])
+
+cd_underc_ind_s,se_underc_ind_s = get_underc_index(QD_xyz_start,ind_Cd,ind_Se,ind_lig,ind_attach,cutoff,nncutoff,verbose=False)
+
+print('Starting geometry')
+print('Undercoordinated Cd:',np.count_nonzero(cd_underc_ind_s))
+print('Undercoordinated Se:',np.count_nonzero(se_underc_ind_s))
+
+comment_s='Undercoordinated atoms from '+QD_file_start + ' cutoff '+str(cutoff)
+write_underc_xyz(QD_xyz_start,atom_name_start,ind_Cd,ind_Se,cd_underc_ind_s,se_underc_ind_s,beg_s,comment_s)
+
+####
+#
+# ANALYZING FINAL GEOMETRY
+#
+####
+
+cd_underc_ind_e,se_underc_ind_e = get_underc_index(QD_xyz_end,ind_Cd,ind_Se,ind_lig,ind_attach,cutoff,nncutoff,verbose=False)
+
+print('Optimized geometry')
+print('Undercoordinated Cd:',np.count_nonzero(cd_underc_ind_e))
+print('Undercoordinated Se:',np.count_nonzero(se_underc_ind_e))
+
 beg_e = '.'.join(QD_file_end.split('.')[0:-1])
-# write xyz files to look at the undercoordinated atoms
-# write_xyz(beg_s+'_se_underc.xyz', se_underc_name_s, se_underc_xyz_s,'Undercoordinated Se atoms from '+QD_file_start + ' cutoff '+str(cutoff))
-# write_xyz(beg_s+'_cd_underc.xyz', cd_underc_name_s, cd_underc_xyz_s,'Undercoordinated Cd atoms from '+QD_file_start + ' cutoff '+str(cutoff))
-# write_xyz(beg_e+'_se_underc.xyz', se_underc_name_e, se_underc_xyz_e,'Undercoordinated Se atoms from '+QD_file_end + ' cutoff '+str(cutoff))
-# write_xyz(beg_e+'_cd_underc.xyz', cd_underc_name_e, cd_underc_xyz_e,'Undercoordinated Cd atoms from '+QD_file_end + ' cutoff '+str(cutoff))
-# write_xyz(beg_e+'_start_se_underc.xyz', se_underc_name_es, se_underc_xyz_es,'Undercoordinated Se atoms from '+QD_file_start + 'positions from end. cutoff '+str(cutoff))
-# write_xyz(beg_e+'_start_cd_underc.xyz', cd_underc_name_es, cd_underc_xyz_es,'Undercoordinated Cd atoms from '+QD_file_start + 'positions from end. cutoff '+str(cutoff))
+comment_e='Undercoordinated atoms from '+QD_file_end + ' cutoff '+str(cutoff)
+write_underc_xyz(QD_xyz_end,atom_name_end,ind_Cd,ind_Se,cd_underc_ind_e,se_underc_ind_e,beg_e,comment_e)
 
+beg_es = '.'.join(QD_file_end.split('.')[0:-1])+"_start"
+comment_es='Undercoordinated atoms from '+QD_file_start + ' in positions from end. cutoff '+str(cutoff)
+write_underc_xyz(QD_xyz_end,atom_name_end,ind_Cd,ind_Se,cd_underc_ind_s,se_underc_ind_s,beg_es,comment_es)
 
-# print(se_underc_ind_s==se_underc_ind_e)
-
+'''
+####
 # ambiguous zone:
-# looks at atoms that change their number of nearest neighbors based on cutoff distance
+# looks at atoms that change their number of nearest neighbors
+# based on cutoff distance
+####
 all_nn_e2,cd_nn_selig_e2,se_nn_cd_e2 = get_nn(cdselig_dists_e,secd_dists_e,ind_Cd,ind_Se,cutoff2,Natoms,ind_lig)
 cd_underc_ind_e2 = cd_nn_selig_e2<nncutoff
 se_underc_ind_e2 = se_nn_cd_e2<nncutoff
@@ -127,8 +137,12 @@ se_amb_xyz_e = QD_xyz_end[ind_Se][nn_change_se_cut_ind]
 # write_xyz(beg_e+'_se_amb.xyz', se_amb_name_e, se_amb_xyz_e,'Ambiguous Se atoms from '+QD_file_end+'cutoff 1 '+str(cutoff)+'cutoff2 '+str(cutoff2) )
 # write_xyz(beg_e+'_cd_amb.xyz', cd_amb_name_e, cd_amb_xyz_e,'Ambiguous Cd atoms from '+QD_file_end+'cutoff 1 '+str(cutoff)+'cutoff2 '+str(cutoff2) )
 
-
+####
+#
 # Comparing number of nearest neighbors between starting and optimized structure:
+#
+####
+
 nn_change_cd = cd_nn_selig_e - cd_nn_selig_s
 nn_change_se = se_nn_cd_e - se_nn_cd_s
 print('Optimization:')
@@ -302,7 +316,7 @@ print('')
 print('Top 5 largest charge fractions on any atom for excitation {}:'.format(n))
 print('   e           h')
 print(top5[:,3*n:3*n+2])
-
+'''
 # charge fraction on undercordinated se as a ratio of the max
 # print(chargefrac_underc_se[:,3*n:3*n+3]/np.max(chargefrac_tot,axis=0)[3*n:3*n+3])
 
