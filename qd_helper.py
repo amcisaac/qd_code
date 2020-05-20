@@ -1,4 +1,5 @@
 import numpy as np
+from matplotlib import pyplot as plt
 
 def read_input_xyz(input_xyz):
     '''
@@ -151,3 +152,28 @@ def get_nn(cdselig_dists,secd_dists,ind_Cd,ind_Se,cutoff,Natoms,ind_lig=False):
         all_nn[ind_lig]=100 # set these to very high to avoid any weirdness
 
     return all_nn,cd_nn_selig,se_nn_cdonly
+
+def nn_histogram(xyz,ind_Cd,ind_Se,label1='',ind_attach=False,xyz2=False,label2=''):
+    all_dists,cdse_dists,cdlig_dists,cdselig_dists,secd_dists = get_dists(xyz,ind_Cd,ind_Se,ind_attach)
+    if np.any(xyz2):
+        all_dists2,cdse_dists2,cdlig_dists2,cdselig_dists2,secd_dists2 = get_dists(xyz2,ind_Cd,ind_Se,ind_attach)
+
+    # Cd-Se distance histogram
+    plt.figure()
+    plt.title("Cd-Se distance")
+    plt.hist(cdse_dists.flatten(),bins=800,label=label1) # crystal
+    if np.any(xyz2): plt.hist(cdse_dists2.flatten(),bins=800,label=label2) # optimized
+    if label2 !='': plt.legend()
+    plt.xlim(0,4)
+    # plt.show()
+    #
+    # # Cd-ligand distance histogram
+    plt.figure()
+    plt.title("Cd-ligand distance")
+    plt.hist(cdlig_dists.flatten(),bins=800,label=label1)
+    if np.any(xyz2): plt.hist(cdlig_dists2.flatten(),bins=800,label=label2)
+    if label2 !='': plt.legend()
+    plt.xlim(0,4)
+    plt.show()
+
+    return

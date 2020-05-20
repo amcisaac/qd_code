@@ -97,6 +97,15 @@ ind_attach = (atom_name_start == lig_atom)
 
 ####
 #
+# PLOT A HISTOGRAM OF NEAREST NEIGHBOR DISTANCES--to determine cutoff
+#
+####
+'''
+nn_histogram(QD_xyz_start,ind_Cd,ind_Se,label1='crystal',ind_attach=ind_attach,xyz2=QD_xyz_end,label2='optimized')
+'''
+
+####
+#
 # ANALYZING STARTING GEOMETRY
 #
 ####
@@ -220,7 +229,7 @@ nex = int(Charges.shape[1]/3)
 # if not using undercoordination as your metric, change axis titles
 #
 ####
-
+'''
 # hole, se
 plt.figure()
 plt.bar(range(0,nex),hole_sum_frac_underc_se)
@@ -252,7 +261,6 @@ plt.xlabel('Excitation number')
 plt.ylabel('Fraction of charge on {} undercoordinated Se'.format(n_underc_se))
 # plt.show()
 
-
 # electron, cd
 plt.figure()
 plt.bar(range(0,nex),electron_sum_frac_underc_cd)
@@ -262,14 +270,14 @@ plt.legend()
 plt.xlabel('Excitation number')
 plt.ylabel('Fraction of charge on {} undercoordinated Cd'.format(n_underc_cd))
 plt.show()
-
+'''
 
 ####
 #
 # PRINTS INFO ABOUT SPECIFIC EXCITATIONS
 #
 ####
-
+'''
 n=0
 
 print('')
@@ -309,38 +317,7 @@ print(top5[:,3*n:3*n+2])
 
 # charge fraction on undercordinated se as a ratio of the max
 # print(chargefrac_underc_se[:,3*n:3*n+3]/np.max(chargefrac_tot,axis=0)[3*n:3*n+3])
+'''
 
 # potential interesting analyses:
 # -some way of measuring if max atom is near undercoordinated
-
-
-# UNCOMMENT TO PLOT A HISTOGRAM OF NEAREST NEIGHBOR DISTANCES
-
-## Cd-Se distance histogram
-# plt.figure()
-# plt.title("Cd-Se distance")
-# plt.hist(cdse_dists_s.flatten(),bins=800) # crystal
-# plt.hist(cdse_dists_e.flatten(),bins=800) # optimized
-# plt.xlim(0,4)
-# plt.show()
-#
-# # Cd-ligand distance histogram
-# plt.figure()
-# plt.title("Cd-ligand distance")
-# plt.hist(cdlig_dists_s.flatten(),bins=800)
-# plt.hist(cdlig_dists_e.flatten(),bins=800)
-# plt.xlim(0,4)
-# plt.show()
-
-# #
-# # # plt.figure()
-# # # plt.title("Cd-Se and Cd-ligands")
-# # # plt.hist(cd_lig_dists_s.flatten(),bins=800)
-# # # plt.hist(cd_lig_dists_e.flatten(),bins=800)
-# # # plt.xlim(0,4)
-# #
-
-#
-# plt.figure()
-# plt.hist(all_dists[ind_Se].flatten(),bins=800)
-# plt.show()
