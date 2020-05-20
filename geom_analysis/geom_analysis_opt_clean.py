@@ -12,6 +12,20 @@ Usage: python3 geom_analysis_opt_clean.py [xyz file of crystal structure] [xyz f
 '''
 
 def parse_ind(atom_name,lig_attach="N"):
+    '''
+    Function to parse the indices for a quantum dot.
+
+    Inputs:
+        atom_name: np array with the atom names for the QD
+        lig_attach: atom in the ligand that attaches to the Cd
+
+    Returns:
+        ind_Cd: boolean array of shape Natoms, indexing the Cd atoms
+        ind_Se: boolean array of shape Natoms, indexing the Se atoms
+        ind_CdSe: boolean array of shape Natoms, indexing both Cd and Se atoms
+        ind_lig: boolean array of shape Natoms, indexing the ligand atoms (or, atoms that aren't Cd or Se)
+        ind_selig: boolean array of shape Natoms, indexing the Se atoms and attach atoms
+    '''
     ind_Cd = (atom_name == "Cd")
     ind_Se = (atom_name == "Se")
     ind_CdSe = np.logical_or(ind_Cd, ind_Se)
@@ -20,6 +34,21 @@ def parse_ind(atom_name,lig_attach="N"):
     return ind_Cd, ind_Se, ind_CdSe, ind_lig, ind_selig
 
 def get_underc_index(xyz,ind_Cd,ind_Se,ind_lig,ind_attach,cutoff,nncutoff,verbose=False):
+    '''
+    Function that finds undercoordinated Cd and Se atoms in a QD.
+
+    Inputs:
+        xyz: np array of xyz coordinates for the QD. shape (Natoms,3)
+        ind_Cd: boolean array of shape Natoms, indexing the Cd atoms
+        ind_Se: boolean array of shape Natoms, indexing the Se atoms
+        ind_lig: boolean array of shape Natoms, indexing the ligand atoms
+        ind_attach: boolean array indexing the ligand atoms that bind to Cd
+        cutoff: cutoff for a nearest neighbor distance
+        nncutoff: number of nearest neighbors to be considered "fully coordinated"
+                  (< this classified as "undercoordinated")
+        verbose: if True, prints the number of nearest neighbors for
+                 "undercoordinated" atoms
+    '''
     all_dists,cdse_dists,cdlig_dists,cdselig_dists,secd_dists = get_dists(xyz,ind_Cd,ind_Se,ind_attach)
     Natoms = len(ind_Cd)
     all_nn,cd_nn_selig,se_nn_cd = get_nn(cdselig_dists,secd_dists,ind_Cd,ind_Se,cutoff,Natoms,ind_lig)
@@ -32,17 +61,30 @@ def get_underc_index(xyz,ind_Cd,ind_Se,ind_lig,ind_attach,cutoff,nncutoff,verbos
         print('Undercoordinated Se:',se_nn_cd[se_underc_ind])
     return cd_underc_ind,se_underc_ind
 
-def write_underc_xyz(xyz,atom_name,ind_Cd,ind_Se,cd_underc_ind,se_underc_ind,filestart,comment):
-    cd_underc_name = atom_name[ind_Cd][cd_underc_ind]
-    se_underc_name = atom_name[ind_Se][se_underc_ind]
-    cd_underc_xyz = xyz[ind_Cd][cd_underc_ind]
-    se_underc_xyz = xyz[ind_Se][se_underc_ind]
-
-    write_xyz(filestart+'_se.xyz', se_underc_name, se_underc_xyz,comment)
-    write_xyz(filestart+'_cd.xyz', cd_underc_name, cd_underc_xyz,comment)
-    return
-
 def get_ind_dif(xyz1,ind_Cd,ind_Se,ind_lig,ind_attach,cutoff,nncutoff,cutoff2=None,xyz2=None):
+    '''
+    Function to get indices of atoms that changed number of nearest neighbors.
+    Can be in response to a different cutoff (in which case, supply cutoff2) or
+    over an optimization (in which case, supply xyz2)
+
+    Inputs:
+        xyz1: np array of xyz coordinates for the QD. shape (Natoms,3)
+        ind_Cd: boolean array of shape Natoms, indexing the Cd atoms
+        ind_Se: boolean array of shape Natoms, indexing the Se atoms
+        ind_lig: boolean array of shape Natoms, indexing the ligand atoms
+        ind_attach: boolean array indexing the ligand atoms that bind to Cd
+        cutoff: cutoff for a nearest neighbor distance
+        nncutoff: number of nearest neighbors to be considered "fully coordinated"
+                  (< this classified as "undercoordinated")
+        cutoff2: (optional) second cutoff to compare
+        xyz2: (optional) second set of xyz coordinates to compare
+
+    Outputs:
+        ind_change_cd_pos: boolean array indexing the cd's that gain nearest neighbors
+        ind_change_cd_neg: boolean array indexing the cd's that lose nearest neighbors
+        ind_change_se_pos: boolean array indexing the se's that gain nearest neighbors
+        ind_change_se_neg: boolean array indexing the se's that lose nearest neighbors
+    '''
     all_dists1,cdse_dists1,cdlig_dists1,cdselig_dists1,secd_dists1 = get_dists(xyz1,ind_Cd,ind_Se,ind_attach)
     Natoms = len(ind_Cd)
     all_nn1,cd_nn_selig1,se_nn_cd1 = get_nn(cdselig_dists1,secd_dists1,ind_Cd,ind_Se,cutoff,Natoms,ind_lig)
@@ -69,6 +111,34 @@ def get_ind_dif(xyz1,ind_Cd,ind_Se,ind_lig,ind_attach,cutoff,nncutoff,cutoff2=No
 
     return ind_change_cd_pos,ind_change_cd_neg,ind_change_se_pos,ind_change_se_neg
 
+def write_underc_xyz(xyz,atom_name,ind_Cd,ind_Se,cd_underc_ind,se_underc_ind,filestart,comment):
+    '''
+    Function to write the coordinates of undercoordinated atoms.
+
+    Inputs:
+        xyz: np array of xyz coordinates for the QD. shape (Natoms,3)
+        atom_name: array of atom names that correspond to xyz
+        ind_Cd: boolean array of shape Natoms, indexing the Cd atoms
+        ind_Se: boolean array of shape Natoms, indexing the Se atoms
+        cd_underc_ind: boolean array corresponding to atom_name, indexing
+                       undercoordinated Cd's
+        se_underc_ind: boolean array corresponding to atom_name, indexing
+                       undercoordinated Se's
+        filestart: most of the descriptive file name for the coordinates.
+                       will have '_se.xyz' or '_cd.xyz' appended to it
+        comment: comment for the xyz files
+    Outputs:
+        writes two xyz files: {filestart}_se.xyz with the coordinates of
+        undercoordinated se's, and {filestart}_cd.xyz, with undercoordinated cd's
+    '''
+    cd_underc_name = atom_name[ind_Cd][cd_underc_ind]
+    se_underc_name = atom_name[ind_Se][se_underc_ind]
+    cd_underc_xyz = xyz[ind_Cd][cd_underc_ind]
+    se_underc_xyz = xyz[ind_Se][se_underc_ind]
+
+    write_xyz(filestart+'_se.xyz', se_underc_name, se_underc_xyz,comment)
+    write_xyz(filestart+'_cd.xyz', cd_underc_name, cd_underc_xyz,comment)
+    return
 
 ###
 ### USER SPECIFIED INFO
