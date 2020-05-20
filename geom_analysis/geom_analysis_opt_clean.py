@@ -41,11 +41,40 @@ def write_underc_xyz(xyz,atom_name,ind_Cd,ind_Se,cd_underc_ind,se_underc_ind,fil
     write_xyz(filestart+'_se.xyz', se_underc_name, se_underc_xyz,comment)
     write_xyz(filestart+'_cd.xyz', cd_underc_name, cd_underc_xyz,comment)
     return
+
+def get_ind_dif(xyz1,ind_Cd,ind_Se,ind_lig,ind_attach,cutoff,nncutoff,cutoff2=None,xyz2=None):
+    all_dists1,cdse_dists1,cdlig_dists1,cdselig_dists1,secd_dists1 = get_dists(xyz1,ind_Cd,ind_Se,ind_attach)
+    Natoms = len(ind_Cd)
+    all_nn1,cd_nn_selig1,se_nn_cd1 = get_nn(cdselig_dists1,secd_dists1,ind_Cd,ind_Se,cutoff,Natoms,ind_lig)
+    if cutoff2:
+        # distances all the same, just a different cutoff
+        all_nn2,cd_nn_selig2,se_nn_cd2 = get_nn(cdselig_dists1,secd_dists1,ind_Cd,ind_Se,cutoff2,Natoms,ind_lig)
+    elif np.any(xyz2):
+        # different xyz, so different distances, but same cutoff
+        all_dists2,cdse_dists2,cdlig_dists2,cdselig_dists2,secd_dists2 = get_dists(xyz2,ind_Cd,ind_Se,ind_attach)
+        all_nn2,cd_nn_selig2,se_nn_cd2 = get_nn(cdselig_dists2,secd_dists2,ind_Cd,ind_Se,cutoff,Natoms,ind_lig)
+
+    cd_underc_ind1 = cd_nn_selig1<nncutoff
+    se_underc_ind1 = se_nn_cd1<nncutoff
+    cd_underc_ind2 = cd_nn_selig2<nncutoff
+    se_underc_ind2 = se_nn_cd2<nncutoff
+
+    nn_change_cd = cd_nn_selig2 - cd_nn_selig1
+    nn_change_se = se_nn_cd2 - se_nn_cd1
+
+    ind_change_cd_pos = nn_change_cd > 0
+    ind_change_cd_neg = nn_change_cd < 0
+    ind_change_se_pos = nn_change_se > 0
+    ind_change_se_neg = nn_change_se < 0
+
+    return ind_change_cd_pos,ind_change_cd_neg,ind_change_se_pos,ind_change_se_neg
+
+
 ###
 ### USER SPECIFIED INFO
 ###
 
-cutoff = 2.9  # nearest neighbor cutoff distance (lowest)
+cutoff = 3.0  # nearest neighbor cutoff distance (lowest)
 cutoff2 = 3.3 # nearest neighbor cutoff distance (highest)
 nncutoff = 3  # number of nearest neighbors to be considered "unpassivated" (incl. ligands)
 lig_atom = "N" # atom that attaches to the Cd in the ligand
@@ -71,18 +100,17 @@ ind_attach = (atom_name_start == lig_atom)
 # ANALYZING STARTING GEOMETRY
 #
 ####
-
-beg_s = '.'.join(QD_file_start.split('.')[0:-1])
-
+'''
 cd_underc_ind_s,se_underc_ind_s = get_underc_index(QD_xyz_start,ind_Cd,ind_Se,ind_lig,ind_attach,cutoff,nncutoff,verbose=False)
 
 print('Starting geometry')
 print('Undercoordinated Cd:',np.count_nonzero(cd_underc_ind_s))
 print('Undercoordinated Se:',np.count_nonzero(se_underc_ind_s))
 
+beg_s = '.'.join(QD_file_start.split('.')[0:-1])
 comment_s='Undercoordinated atoms from '+QD_file_start + ' cutoff '+str(cutoff)
 write_underc_xyz(QD_xyz_start,atom_name_start,ind_Cd,ind_Se,cd_underc_ind_s,se_underc_ind_s,beg_s,comment_s)
-
+'''
 ####
 #
 # ANALYZING FINAL GEOMETRY
@@ -94,7 +122,7 @@ cd_underc_ind_e,se_underc_ind_e = get_underc_index(QD_xyz_end,ind_Cd,ind_Se,ind_
 print('Optimized geometry')
 print('Undercoordinated Cd:',np.count_nonzero(cd_underc_ind_e))
 print('Undercoordinated Se:',np.count_nonzero(se_underc_ind_e))
-
+'''
 beg_e = '.'.join(QD_file_end.split('.')[0:-1])
 comment_e='Undercoordinated atoms from '+QD_file_end + ' cutoff '+str(cutoff)
 write_underc_xyz(QD_xyz_end,atom_name_end,ind_Cd,ind_Se,cd_underc_ind_e,se_underc_ind_e,beg_e,comment_e)
@@ -109,68 +137,29 @@ write_underc_xyz(QD_xyz_end,atom_name_end,ind_Cd,ind_Se,cd_underc_ind_s,se_under
 # looks at atoms that change their number of nearest neighbors
 # based on cutoff distance
 ####
-all_nn_e2,cd_nn_selig_e2,se_nn_cd_e2 = get_nn(cdselig_dists_e,secd_dists_e,ind_Cd,ind_Se,cutoff2,Natoms,ind_lig)
-cd_underc_ind_e2 = cd_nn_selig_e2<nncutoff
-se_underc_ind_e2 = se_nn_cd_e2<nncutoff
-
-nn_change_cd_cut = cd_nn_selig_e2 - cd_nn_selig_e
-nn_change_se_cut = se_nn_cd_e2 - se_nn_cd_e
-
-nn_change_cd_cut_end_pos = nn_change_cd_cut > 0
-nn_change_cd_cut_end_neg = nn_change_cd_cut < 0
-nn_change_se_cut_end_pos = nn_change_se_cut > 0
-nn_change_se_cut_end_neg = nn_change_se_cut < 0
-nn_change_cd_cut_ind = nn_change_cd_cut != 0
-nn_change_se_cut_ind = nn_change_se_cut != 0
-
-print('ambiguous zone')
-# prints change in # NN
-print('Cd that change nearest neighbor',nn_change_cd_cut)
-print('Se that change nearest neighbor',nn_change_se_cut)
-
-cd_amb_name_e = atom_name_end[ind_Cd][nn_change_cd_cut_ind]
-se_amb_name_e = atom_name_end[ind_Se][nn_change_se_cut_ind]
-cd_amb_xyz_e = QD_xyz_end[ind_Cd][nn_change_cd_cut_ind]
-se_amb_xyz_e = QD_xyz_end[ind_Se][nn_change_se_cut_ind]
-
-# writes xyz files for just ones that change, doesn't distinguish gaining/losing
-# write_xyz(beg_e+'_se_amb.xyz', se_amb_name_e, se_amb_xyz_e,'Ambiguous Se atoms from '+QD_file_end+'cutoff 1 '+str(cutoff)+'cutoff2 '+str(cutoff2) )
-# write_xyz(beg_e+'_cd_amb.xyz', cd_amb_name_e, cd_amb_xyz_e,'Ambiguous Cd atoms from '+QD_file_end+'cutoff 1 '+str(cutoff)+'cutoff2 '+str(cutoff2) )
-
+'''
+ind_amb_cd_pos,ind_amb_cd_neg,ind_amb_se_pos,ind_amb_se_neg=get_ind_dif(QD_xyz_end,ind_Cd,ind_Se,ind_lig,ind_attach,cutoff,nncutoff,cutoff2=cutoff2)
+ind_amb_cd = np.logical_or(ind_amb_cd_pos,ind_amb_cd_neg)
+ind_amb_se = np.logical_or(ind_amb_se_pos,ind_amb_se_neg)
+beg_amb = '.'.join(QD_file_end.split('.')[0:-1])+"_amb"
+comment_amb='Ambiguous atoms from '+QD_file_end + ' cutoff1 '+str(cutoff)+' cutoff2 '+str(cutoff2)
+write_underc_xyz(QD_xyz_end,atom_name_end,ind_Cd,ind_Se,ind_amb_cd,ind_amb_se,beg_amb,comment_amb)
+'''
 ####
 #
 # Comparing number of nearest neighbors between starting and optimized structure:
 #
 ####
+'''
+ind_opt_cd_pos,ind_opt_cd_neg,ind_opt_se_pos,ind_opt_se_neg=get_ind_dif(QD_xyz_start,ind_Cd,ind_Se,ind_lig,ind_attach,cutoff,nncutoff,xyz2=QD_xyz_end)
+beg_pos = '.'.join(QD_file_end.split('.')[0:-1])+"_changeopt_pos"
+comment_pos='Atoms that gain NN after optimization. cutoff '+str(cutoff)
+write_underc_xyz(QD_xyz_end,atom_name_end,ind_Cd,ind_Se,ind_opt_cd_pos,ind_opt_se_pos,beg_pos,comment_pos)
 
-nn_change_cd = cd_nn_selig_e - cd_nn_selig_s
-nn_change_se = se_nn_cd_e - se_nn_cd_s
-print('Optimization:')
-print('Cd that change nearestneighbor',nn_change_cd)
-print('Se that change nearest neighbor',nn_change_se)
-
-nn_change_cd_pos = nn_change_cd > 0
-nn_change_cd_neg = nn_change_cd < 0
-nn_change_se_pos = nn_change_se > 0
-nn_change_se_neg = nn_change_se < 0
-
-cd_pos_name = atom_name_start[ind_Cd][nn_change_cd_pos]
-se_pos_name = atom_name_start[ind_Se][nn_change_se_pos]
-cd_pos_xyz = QD_xyz_end[ind_Cd][nn_change_cd_pos]
-se_pos_xyz = QD_xyz_end[ind_Se][nn_change_se_pos]
-
-cd_neg_name = atom_name_start[ind_Cd][nn_change_cd_neg]
-se_neg_name = atom_name_start[ind_Se][nn_change_se_neg]
-cd_neg_xyz = QD_xyz_end[ind_Cd][nn_change_cd_neg]
-se_neg_xyz = QD_xyz_end[ind_Se][nn_change_se_neg]
-
-
-# writes xyz files for ones that gain nearest neighbors (pos) and lose nearest neighbors (neg)
-# write_xyz(beg_e+'_se_pos_change.xyz', se_pos_name, se_pos_xyz,'Se atoms with more NN after opt '+QD_file_end + ' cutoff '+str(cutoff))
-# write_xyz(beg_e+'_cd_pos_change.xyz', cd_pos_name, cd_pos_xyz,'Cd atoms with more NN after opt '+QD_file_end + ' cutoff '+str(cutoff))
-# write_xyz(beg_e+'_se_neg_change.xyz', se_neg_name, se_neg_xyz,'Se atoms with less NN after opt '+QD_file_end + ' cutoff '+str(cutoff))
-# write_xyz(beg_e+'_cd_neg_change.xyz', cd_neg_name, cd_neg_xyz,'Cd atoms with less NN after opt '+QD_file_end + ' cutoff '+str(cutoff))
-
+beg_neg = '.'.join(QD_file_end.split('.')[0:-1])+"_changeopt_neg"
+comment_neg='Atoms that lose NN after optimization. cutoff '+str(cutoff)
+write_underc_xyz(QD_xyz_end,atom_name_end,ind_Cd,ind_Se,ind_opt_cd_neg,ind_opt_se_neg,beg_pos,comment_neg)
+'''
 
 ####
 #
@@ -228,6 +217,7 @@ nex = int(Charges.shape[1]/3)
 ####
 #
 # PLOTTING CHARGE FRACTIONS FOR ALL EXCITATIONS
+# if not using undercoordination as your metric, change axis titles
 #
 ####
 
@@ -271,7 +261,7 @@ plt.plot([0,nex],[n_underc_cd/(n_cd),n_underc_cd/(n_cd)],'r--',label='e evenly d
 plt.legend()
 plt.xlabel('Excitation number')
 plt.ylabel('Fraction of charge on {} undercoordinated Cd'.format(n_underc_cd))
-# plt.show()
+plt.show()
 
 
 ####
@@ -280,7 +270,7 @@ plt.ylabel('Fraction of charge on {} undercoordinated Cd'.format(n_underc_cd))
 #
 ####
 
-n=119
+n=0
 
 print('')
 print('Fraction of charge on each undercoordinated Se for excitation {}:'.format(n))
@@ -316,14 +306,11 @@ print('')
 print('Top 5 largest charge fractions on any atom for excitation {}:'.format(n))
 print('   e           h')
 print(top5[:,3*n:3*n+2])
-'''
+
 # charge fraction on undercordinated se as a ratio of the max
 # print(chargefrac_underc_se[:,3*n:3*n+3]/np.max(chargefrac_tot,axis=0)[3*n:3*n+3])
 
 # potential interesting analyses:
-# -is the max on undercoordinated atom
-# -are any of the undercoordinated atoms in the top 5
-# -ratio of undercoordinated to max charge on an atom
 # -some way of measuring if max atom is near undercoordinated
 
 
