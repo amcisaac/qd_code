@@ -2,6 +2,7 @@ import numpy as np
 import sys
 import matplotlib.pyplot as plt
 from qd_helper import *
+import copy
 
 '''
 Script to do geometry analysis of CdSe QD's and determine if any surface atoms are
@@ -22,7 +23,7 @@ def parse_ind(atom_name,lig_attach="N"):
 ### USER SPECIFIED INFO
 ###
 
-cutoff = 3.0  # nearest neighbor cutoff distance (lowest)
+cutoff = 2.9  # nearest neighbor cutoff distance (lowest)
 cutoff2 = 3.3 # nearest neighbor cutoff distance (highest)
 nncutoff = 3  # number of nearest neighbors to be considered "unpassivated" (incl. ligands)
 lig_atom = "N" # atom that attaches to the Cd in the ligand
@@ -123,8 +124,8 @@ cd_amb_xyz_e = QD_xyz_end[ind_Cd][nn_change_cd_cut_ind]
 se_amb_xyz_e = QD_xyz_end[ind_Se][nn_change_se_cut_ind]
 
 # writes xyz files for just ones that change, doesn't distinguish gaining/losing
-write_xyz(beg_e+'_se_amb.xyz', se_amb_name_e, se_amb_xyz_e,'Ambiguous Se atoms from '+QD_file_end+'cutoff 1 '+str(cutoff)+'cutoff2 '+str(cutoff2) )
-write_xyz(beg_e+'_cd_amb.xyz', cd_amb_name_e, cd_amb_xyz_e,'Ambiguous Cd atoms from '+QD_file_end+'cutoff 1 '+str(cutoff)+'cutoff2 '+str(cutoff2) )
+# write_xyz(beg_e+'_se_amb.xyz', se_amb_name_e, se_amb_xyz_e,'Ambiguous Se atoms from '+QD_file_end+'cutoff 1 '+str(cutoff)+'cutoff2 '+str(cutoff2) )
+# write_xyz(beg_e+'_cd_amb.xyz', cd_amb_name_e, cd_amb_xyz_e,'Ambiguous Cd atoms from '+QD_file_end+'cutoff 1 '+str(cutoff)+'cutoff2 '+str(cutoff2) )
 
 
 # Comparing number of nearest neighbors between starting and optimized structure:
@@ -155,6 +156,161 @@ se_neg_xyz = QD_xyz_end[ind_Se][nn_change_se_neg]
 # write_xyz(beg_e+'_cd_pos_change.xyz', cd_pos_name, cd_pos_xyz,'Cd atoms with more NN after opt '+QD_file_end + ' cutoff '+str(cutoff))
 # write_xyz(beg_e+'_se_neg_change.xyz', se_neg_name, se_neg_xyz,'Se atoms with less NN after opt '+QD_file_end + ' cutoff '+str(cutoff))
 # write_xyz(beg_e+'_cd_neg_change.xyz', cd_neg_name, cd_neg_xyz,'Cd atoms with less NN after opt '+QD_file_end + ' cutoff '+str(cutoff))
+
+
+####
+#
+# CHARGE ANALYSIS
+#
+####
+
+# reading in charges (same as surf vs bulk)
+charges_input = sys.argv[3]
+Charges_full=np.loadtxt(charges_input,delimiter=',',skiprows=1,dtype=str)
+Charges = Charges_full[:-1,1:].astype(float)
+
+# reshape indices of undercoordinated Se and Cd so they can index the charges
+se_underc_ind_e_lg = copy.deepcopy(ind_Se)
+se_underc_ind_e_lg[ind_Se] = se_underc_ind_e # USE INDICES FROM WHATEVER METHOD YOU PREFER
+                                             # this is the undercoordinated at the end of the optimization
+
+cd_underc_ind_e_lg = copy.deepcopy(ind_Cd)
+cd_underc_ind_e_lg[ind_Cd] =cd_underc_ind_e # USE INDICES FROM WHATEVER METHOD YOU PREFER
+                                            # this is the undercoordinated at the end of the optimization
+
+# sum over charges
+sum_charge = np.sum(Charges,axis=0)
+sum_charge[np.nonzero(np.abs(sum_charge)<=1e-15)] = 1e-8 # sometimes delta is too small, replace with 1e-8
+                                                         # we never use delta so shouldn't matter
+# calculate charge fractions
+chargefrac_tot = Charges/sum_charge
+chargefrac_underc_se = chargefrac_tot[se_underc_ind_e_lg]
+chargefrac_underc_cd = chargefrac_tot[cd_underc_ind_e_lg]
+
+# sum charge fractions on undercoordinated atoms
+sum_chargefrac_underc_se = np.sum(chargefrac_underc_se,axis=0)
+sum_chargefrac_underc_cd = np.sum(chargefrac_underc_cd,axis=0)
+
+# reshape so that we have an array of shape (Nex, 3) where column 0 is electron
+# charge sum, column 1 is hole charge sum, and column 2 is delta (ignored)
+sum_underc_se_frac_reshape = np.reshape(sum_chargefrac_underc_se,(-1,3))
+sum_underc_cd_frac_reshape = np.reshape(sum_chargefrac_underc_cd,(-1,3))
+
+# charge fraction sum for hole on undercoordinated atoms
+hole_sum_frac_underc_se = sum_underc_se_frac_reshape[:,1]
+hole_sum_frac_underc_cd = sum_underc_cd_frac_reshape[:,1]
+# charge fraction sum for electron on undercoordinated atoms
+electron_sum_frac_underc_se = sum_underc_se_frac_reshape[:,0]
+electron_sum_frac_underc_cd = sum_underc_cd_frac_reshape[:,0]
+
+# number of each type of atom
+n_underc_cd = float(np.count_nonzero(cd_underc_ind_e_lg))
+n_underc_se = float(np.count_nonzero(se_underc_ind_e_lg))
+n_cdse = float(np.count_nonzero(ind_CdSe))
+n_se = float(np.count_nonzero(ind_Se))
+n_cd = float(np.count_nonzero(ind_Cd))
+nex = int(Charges.shape[1]/3)
+
+####
+#
+# PLOTTING CHARGE FRACTIONS FOR ALL EXCITATIONS
+#
+####
+
+# hole, se
+plt.figure()
+plt.bar(range(0,nex),hole_sum_frac_underc_se)
+plt.plot([0,nex],[n_underc_se/(n_cdse),n_underc_se/(n_cdse)],'k--',label='hole evenly distributed on all cd,se')
+plt.plot([0,nex],[n_underc_se/(n_se),n_underc_se/(n_se)],'r--',label='hole evenly distributed on all se')
+plt.legend()
+plt.xlabel('Excitation number')
+plt.ylabel('Fraction of charge on {} undercoordinated Se'.format(n_underc_se))
+# plt.show()
+
+
+# hole, cd
+plt.figure()
+plt.bar(range(0,nex),hole_sum_frac_underc_cd)
+plt.plot([0,nex],[n_underc_cd/(n_cdse),n_underc_cd/(n_cdse)],'k--',label='hole evenly distributed on all cd,se')
+plt.plot([0,nex],[n_underc_cd/(n_cd),n_underc_cd/(n_cd)],'r--',label='hole evenly distributed on all cd')
+plt.legend()
+plt.xlabel('Excitation number')
+plt.ylabel('Fraction of charge on {} undercoordinated Cd'.format(n_underc_cd))
+# plt.show()
+
+# electron, se
+plt.figure()
+plt.bar(range(0,nex),electron_sum_frac_underc_se)
+plt.plot([0,nex],[n_underc_se/(n_cdse),n_underc_se/(n_cdse)],'k--',label='e evenly distributed on all cd,se')
+plt.plot([0,nex],[n_underc_se/(n_se),n_underc_se/(n_se)],'r--',label='e evenly distributed on all se')
+plt.legend()
+plt.xlabel('Excitation number')
+plt.ylabel('Fraction of charge on {} undercoordinated Se'.format(n_underc_se))
+# plt.show()
+
+
+# electron, cd
+plt.figure()
+plt.bar(range(0,nex),electron_sum_frac_underc_cd)
+plt.plot([0,nex],[n_underc_cd/(n_cdse),n_underc_cd/(n_cdse)],'k--',label='e evenly distributed on all cd,se')
+plt.plot([0,nex],[n_underc_cd/(n_cd),n_underc_cd/(n_cd)],'r--',label='e evenly distributed on all cd')
+plt.legend()
+plt.xlabel('Excitation number')
+plt.ylabel('Fraction of charge on {} undercoordinated Cd'.format(n_underc_cd))
+# plt.show()
+
+
+####
+#
+# PRINTS INFO ABOUT SPECIFIC EXCITATIONS
+#
+####
+
+n=119
+
+print('')
+print('Fraction of charge on each undercoordinated Se for excitation {}:'.format(n))
+print('   e           h')
+print(chargefrac_underc_se[:,3*n:3*n+2])
+print('')
+print('Sum of charge on undercoordinated Se for excitation {}:'.format(n))
+print('   e           h')
+print(sum_chargefrac_underc_se[3*n:3*n+2])
+
+max_ind = np.argmax(chargefrac_tot,axis=0) # index of the largest charge fraction on any atom
+max_charge=np.max(chargefrac_tot,axis=0)   # largest charge fraction on any atom
+print('')
+print('Largest charge fraction on any atom for excitation {}:'.format(n))
+print('   e           h')
+print(max_charge[3*n:3*n+2])
+print('')
+print('Is the largest charge fraction on an undercoordinated Se?')
+print('   e     h')
+print(np.any(chargefrac_underc_se[:,3*n:3*n+2]==max_charge[3*n:3*n+2],axis=0))
+# print(atom_name_start[max_ind][3*n:3*n+3]) # atom name with largest charge fraction
+
+# creates an array (Nex, 3) where each entry is whether the max charge fraction is on an undercoordinated se
+# found this wasn't useful because it's almost always on it, even for bulk excitations
+max_is_underc_long = np.any(chargefrac_underc_se==max_charge,axis=0)
+max_is_underc= np.reshape(max_is_underc_long,(-1,3))
+# print(max_is_underc[100:120])
+
+# finds the top 5 highest charge fractions on any atom
+top5_ind = np.argpartition(-chargefrac_tot,5,axis=0)[:5] # index of top 5
+top5 = np.take_along_axis(chargefrac_tot,top5_ind,axis=0) # value of top 5
+print('')
+print('Top 5 largest charge fractions on any atom for excitation {}:'.format(n))
+print('   e           h')
+print(top5[:,3*n:3*n+2])
+
+# charge fraction on undercordinated se as a ratio of the max
+# print(chargefrac_underc_se[:,3*n:3*n+3]/np.max(chargefrac_tot,axis=0)[3*n:3*n+3])
+
+# potential interesting analyses:
+# -is the max on undercoordinated atom
+# -are any of the undercoordinated atoms in the top 5
+# -ratio of undercoordinated to max charge on an atom
+# -some way of measuring if max atom is near undercoordinated
 
 
 # UNCOMMENT TO PLOT A HISTOGRAM OF NEAREST NEIGHBOR DISTANCES
