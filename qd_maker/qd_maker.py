@@ -18,12 +18,13 @@ Please specify a radius and method below.
 ############
 
 input_file = sys.argv[1] # xyz file of crystal slab
-rad = 9. # core radius, in Angstroms
-rad2 = 12. # shell radius, in Angstroms
-n_ctr = 6  # specifies method of choosing the center -- 6 is middle of cage,
+rad = 10   # core radius, in Angstroms
+rad2 = 13  # shell radius, in Angstroms
+n_ctr =3  # specifies method of choosing the center -- 6 is middle of cage,
               # 3 is middle of plane, 1 is middle of bond, 'cd' is on cd, 'se' is on se
               # 0 is center of xyz, 'random' will determine the center randomly to find a stoichiometric dot
 
+end='ctr3'
 
 def build_dot(xyz,atoms,ctr,radius,nncutoff=2):
     '''
@@ -58,7 +59,7 @@ def build_dot(xyz,atoms,ctr,radius,nncutoff=2):
     ind_Se_r = (atoms_in_r == "Se")
 
     # getting distances between all atoms
-    all_dists,cd_se_dists,se_cd_dists = get_dists(xyz_in_r,ind_Cd_r,ind_Se_r)
+    all_dists,cd_se_dists,garb,garb2,se_cd_dists = get_dists(xyz_in_r,ind_Cd_r,ind_Se_r)
     # getting nearest neighbor info
     all_nn,cd_nn,se_nn=get_nn(cd_se_dists,se_cd_dists,ind_Cd_r,ind_Se_r,3.0,len(atoms_in_r))
 
@@ -262,7 +263,7 @@ def avg_radius(xyz,atoms,atom1,atom2,cutoff=3.0):
     Nat = len(atoms)
 
     # get nearest neighbors
-    all_dists,dist12,dist21 = get_dists(xyz_ctr,ind1,ind2)
+    all_dists,dist12,garb,garb2,dist21 = get_dists(xyz_ctr,ind1,ind2)
     all_nn,nn1,nn2=get_nn(dist12,dist21,ind1,ind2,cutoff,Nat)
 
     # determine surface atoms by # nearest neighbors
@@ -322,7 +323,7 @@ print('Dot standard dev: ', dot_std)
 comment = 'r1 = {}A, r2 = {}A, r_c = {}A, std_c = {}, r_tot = {}A, std_tot = {}'.format(rad,rad2,np.around(core_r,3),np.around(core_std,3),np.around(dot_r,3),np.around(dot_std,3))
 
 # CHECKING FOR UNPASSIVATED CORE ATOMS
-all_dists,cd_se_dists,se_cd_dists = get_dists(xyz_coreshell,atom_names_coreshell=='Cd',atom_names_coreshell != 'Cd')
+all_dists,cd_se_dists,garb,garb2,se_cd_dists = get_dists(xyz_coreshell,atom_names_coreshell=='Cd',atom_names_coreshell != 'Cd')
 all_nn,cd_nn,se_nn=get_nn(cd_se_dists,se_cd_dists,atom_names_coreshell=='Cd',atom_names_coreshell!='Cd',3.0,len(atom_names_coreshell))
 
 core_cd = np.logical_and(core_ind,atom_names == 'Cd') # boolean indices for core cd's, shape of crystal slab
@@ -342,6 +343,6 @@ if unpass_core_cd+unpass_core_se > 1:
 
 
 # MAKING XYZ
-write_xyz('core_only.xyz',atom_names_coreonly,xyz_coreonly,comment)
-write_xyz('shell_only.xyz',atom_names_shellonly,xyz_shellonly,comment)
-write_xyz('coreshell.xyz',atom_names_coreshell,xyz_coreshell,comment)
+write_xyz('core_only_{}.xyz'.format(end),atom_names_coreonly,xyz_coreonly,comment)
+write_xyz('shell_only_{}.xyz'.format(end),atom_names_shellonly,xyz_shellonly,comment)
+write_xyz('coreshell_{}.xyz'.format(end),atom_names_coreshell,xyz_coreshell,comment)

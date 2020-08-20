@@ -102,7 +102,7 @@ def get_dists(QD_xyz,ind_Cd,ind_Se,ind_attach=False):
         return all_dists,cd_se_dists_all,cd_lig_dists_all,cd_se_lig_dists_all,se_cd_dists_all
 
     else:
-        return all_dists,cd_se_dists_all,se_cd_dists_all
+        return all_dists,cd_se_dists_all,[],cd_se_dists_all,se_cd_dists_all
 
 def num_nn(dist_list,cutoff):
     '''
@@ -173,6 +173,7 @@ def nn_histogram(xyz,ind_Cd,ind_Se,label1='',ind_attach=False,xyz2=False,label2=
     '''
 
     all_dists,cdse_dists,cdlig_dists,cdselig_dists,secd_dists = get_dists(xyz,ind_Cd,ind_Se,ind_attach)
+
     if np.any(xyz2):
         all_dists2,cdse_dists2,cdlig_dists2,cdselig_dists2,secd_dists2 = get_dists(xyz2,ind_Cd,ind_Se,ind_attach)
 
@@ -185,7 +186,7 @@ def nn_histogram(xyz,ind_Cd,ind_Se,label1='',ind_attach=False,xyz2=False,label2=
     plt.xlim(0,4)
     # plt.show()
     #
-    if ind_attach:
+    if np.any(ind_attach):
         # # Cd-ligand distance histogram
         plt.figure()
         plt.title("Cd-ligand distance")

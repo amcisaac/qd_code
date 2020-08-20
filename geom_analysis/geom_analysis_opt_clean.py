@@ -145,13 +145,15 @@ def write_underc_xyz(xyz,atom_name,ind_Cd,ind_Se,cd_underc_ind,se_underc_ind,fil
 ###
 
 cutoff = 3.0  # nearest neighbor cutoff distance (lowest)
+print('cutoff: ',cutoff)
 cutoff2 = 3.3 # nearest neighbor cutoff distance (highest)
 nncutoff = 3  # number of nearest neighbors to be considered "unpassivated" (incl. ligands)
-lig_atom = "N" # atom that attaches to the Cd in the ligand
-
+lig_atom = "O" # atom that attaches to the Cd in the ligand
 
 QD_file_start=sys.argv[1] # QD crystal xyz file
 QD_file_end=sys.argv[2]   # QD optimized xyz file
+charges_input = sys.argv[3]
+# savename=sys.argv[4]
 
 QD_xyz_start,atom_name_start = read_input_xyz(QD_file_start)
 QD_xyz_end,atom_name_end = read_input_xyz(QD_file_end)
@@ -170,22 +172,23 @@ ind_attach = (atom_name_start == lig_atom)
 # PLOT A HISTOGRAM OF NEAREST NEIGHBOR DISTANCES--to determine cutoff
 #
 ####
-'''
-nn_histogram(QD_xyz_start,ind_Cd,ind_Se,label1='crystal',ind_attach=ind_attach,xyz2=QD_xyz_end,label2='optimized')
-'''
+
+# nn_histogram(QD_xyz_start,ind_Cd,ind_Se,label1='crystal',ind_attach=ind_attach,xyz2=QD_xyz_end,label2='optimized')
+all_dists,cdse_dists,cdlig_dists,cdselig_dists,secd_dists = get_dists(QD_xyz_end,ind_Cd,ind_Se,ind_attach)
+np.savetxt('hist.csv',cdse_dists.flatten())
 
 ####
 #
 # ANALYZING STARTING GEOMETRY
 #
 ####
-'''
+# '''
 cd_underc_ind_s,se_underc_ind_s = get_underc_index(QD_xyz_start,ind_Cd,ind_Se,ind_lig,ind_attach,cutoff,nncutoff,verbose=False)
 
 print('Starting geometry')
 print('Undercoordinated Cd:',np.count_nonzero(cd_underc_ind_s))
 print('Undercoordinated Se:',np.count_nonzero(se_underc_ind_s))
-
+'''
 beg_s = '.'.join(QD_file_start.split('.')[0:-1])
 comment_s='Undercoordinated atoms from '+QD_file_start + ' cutoff '+str(cutoff)
 write_underc_xyz(QD_xyz_start,atom_name_start,ind_Cd,ind_Se,cd_underc_ind_s,se_underc_ind_s,beg_s,comment_s)
@@ -247,7 +250,6 @@ write_underc_xyz(QD_xyz_end,atom_name_end,ind_Cd,ind_Se,ind_opt_cd_neg,ind_opt_s
 ####
 
 # reading in charges (same as surf vs bulk)
-charges_input = sys.argv[3]
 Charges_full=np.loadtxt(charges_input,delimiter=',',skiprows=1,dtype=str)
 Charges = Charges_full[:-1,1:].astype(float)
 
@@ -293,6 +295,10 @@ n_se = float(np.count_nonzero(ind_Se))
 n_cd = float(np.count_nonzero(ind_Cd))
 nex = int(Charges.shape[1]/3)
 
+underc_eh_charge=np.concatenate((sum_underc_se_frac_reshape[:,:2],sum_underc_cd_frac_reshape[:,:2]),axis=1)
+write_underc_charge=np.concatenate((np.array([[n_underc_se/n_se,n_underc_se/n_cdse,n_underc_cd/n_cd,n_underc_cd/n_cdse]]),underc_eh_charge))
+# np.savetxt(savename,write_underc_charge,header='se_e,se_h,cd_e,cd_h',delimiter=',')
+
 ####
 #
 # PLOTTING CHARGE FRACTIONS FOR ALL EXCITATIONS
@@ -303,6 +309,7 @@ nex = int(Charges.shape[1]/3)
 # hole, se
 plt.figure()
 plt.bar(range(0,nex),hole_sum_frac_underc_se)
+plt.bar(range(0,nex),underc_eh_charge[:,1])
 plt.plot([0,nex],[n_underc_se/(n_cdse),n_underc_se/(n_cdse)],'k--',label='hole evenly distributed on all cd,se')
 plt.plot([0,nex],[n_underc_se/(n_se),n_underc_se/(n_se)],'r--',label='hole evenly distributed on all se')
 plt.legend()
@@ -324,6 +331,7 @@ plt.ylabel('Fraction of charge on {} undercoordinated Cd'.format(n_underc_cd))
 # electron, se
 plt.figure()
 plt.bar(range(0,nex),electron_sum_frac_underc_se)
+plt.bar(range(0,nex),underc_eh_charge[:,0])
 plt.plot([0,nex],[n_underc_se/(n_cdse),n_underc_se/(n_cdse)],'k--',label='e evenly distributed on all cd,se')
 plt.plot([0,nex],[n_underc_se/(n_se),n_underc_se/(n_se)],'r--',label='e evenly distributed on all se')
 plt.legend()
