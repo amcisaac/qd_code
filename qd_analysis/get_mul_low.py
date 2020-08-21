@@ -114,7 +114,7 @@ for ex in exs:
     head.append(str(ex)+'D')
 
 # saving the files
-if args.tda: np.savetxt(inp_name+'_mul_tda_t.csv',mul_tda_array,delimiter=',',header=','.join(head),fmt='%.18s')
-if args.tda: np.savetxt(inp_name+'_low_tda_t.csv',low_tda_array,delimiter=',',header=','.join(head),fmt='%.18s')
-if args.tddft: np.savetxt(inp_name+'_mul_tddft_t.csv',mul_tddft_array,delimiter=',',header=','.join(head),fmt='%.18s')
-if args.tddft: np.savetxt(inp_name+'_low_tddft_t.csv',low_tddft_array,delimiter=',',header=','.join(head),fmt='%.18s')
+if args.tda: np.savetxt(inp_name+'_mul_tda.csv',mul_tda_array,delimiter=',',header=','.join(head),fmt='%.18s')
+if args.tda: np.savetxt(inp_name+'_low_tda.csv',low_tda_array,delimiter=',',header=','.join(head),fmt='%.18s')
+if args.tddft: np.savetxt(inp_name+'_mul_tddft.csv',mul_tddft_array,delimiter=',',header=','.join(head),fmt='%.18s')
+if args.tddft: np.savetxt(inp_name+'_low_tddft.csv',low_tddft_array,delimiter=',',header=','.join(head),fmt='%.18s')
