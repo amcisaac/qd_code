@@ -2,7 +2,7 @@ import argparse
 
 # script to extract spectrum from TDDFT calculation
 # usage: python3 get_spectrum [name of TDDFT output file]
-# writes to [TDDFT output] + [tddft or tda]_spec.csv
+# writes to [TDDFT output] + [tddft or tda]_spec.csv unless -o/--output specified
 
 # tddft and tda refer to what's in the file--can't select only tda if tddft is also in the file :(
 my_parser = argparse.ArgumentParser(description='Get spectrum from a QChem TDA/TDDFT output file')
@@ -10,14 +10,18 @@ my_parser.add_argument('inputfile',metavar='qchem file',help='The QChem output f
 my_parser.add_argument('--tda',action='store_true',help='Get TDA spectrum')
 my_parser.add_argument('--tddft',action='store_true',help='Get TDDFT spectrum')
 my_parser.add_argument('-t','--triplet',action='store_true',help='Specify if the system is a triplet') # only really matters for calcs with only tddft
+my_parser.add_argument('-o','--output',action='store',help='Specify different name for output file') # NOTE: preserves path of original file
 
 args=my_parser.parse_args()
 
 # name files for excitation energies:
+if args.output: beg_output_name = '/'.join(args.inputfile.split('/')[:-1])+ '/'+args.output
+else: beg_output_name = '.'.join(args.inputfile.split('.')[:-1])
+
 if args.tda:
-    output1='.'.join(args.inputfile.split('.')[:-1])+ '_tda_spec.csv'
+    output1=beg_output_name+ '_tda_spec.csv'
 if args.tddft:
-    output2='.'.join(args.inputfile.split('.')[:-1])+ '_tddft_spec.csv'
+    output2=beg_output_name+ '_tddft_spec.csv'
 
 with open(args.inputfile,'r') as inp:
     flag=0  # flag indicates whether you're in the excitation energy part of the file
