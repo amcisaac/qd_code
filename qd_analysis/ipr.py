@@ -1,5 +1,6 @@
 import numpy as np
 import sys
+from qd_helper import read_input_xyz,write_xyz
 
 '''
 Script to analyze the mulliken/lowdin charges from tddft/tda excitations
@@ -7,36 +8,6 @@ Script to analyze the mulliken/lowdin charges from tddft/tda excitations
 USAGE:
 python3 surf_vs_bulk_clean.py [QD xyz file] [charge file] [optional: number of excitation to print detailed info about]
 '''
-
-def read_input_xyz(input_xyz):
-    '''
-    Function that reads xyz file into arrays
-
-    Inputs: input_xyz -- .xyz file with the QD coordinates
-    Outputs: xyz_coords -- np array with the coordinates of all the atoms (float)
-             atom_names -- np array with the atom names (str)
-    '''
-    xyz_coords = np.loadtxt(input_xyz,skiprows=2,usecols=(1,2,3))
-    atom_names = np.loadtxt(input_xyz,skiprows=2,usecols=(0,),dtype=str)
-    return xyz_coords, atom_names
-
-def write_xyz(out_file, atom_names, atom_xyz, comment=''):
-    '''
-    Function that writes xyz coordinate arrays to .xyz file
-
-    Inputs: out_file   -- name of the file to write coordinates to
-            atom_names -- np array or list of atom names (str)
-            atom_xyz   -- np array or list of atom xyz coordinates (float)
-            comment    -- comment line to write in the xyz file
-
-    Outputs: Writes to xyz_file
-    '''
-    with open(out_file,'w') as xyz_file:
-        xyz_file.write(str(len(atom_names))+'\n')
-        xyz_file.write(comment+'\n')
-        for i, atom in enumerate(atom_names):
-            xyz_file.write(atom +'    '+ str(atom_xyz[i][0])+'    '+str(atom_xyz[i][1])+'    '+str(atom_xyz[i][2])+'\n')
-    return
 
 def inv_par_rat(index_CdSe, Charges):
     '''
@@ -99,7 +70,7 @@ Charges_full=np.loadtxt(charges_input,delimiter=',',skiprows=1,dtype=str)
 Charges = Charges_full[:-1,1:].astype(float)
 
 # calculate ipr
-ipr_write = inv_par_rat(ind_all, Charges)
+ipr_write = inv_par_rat(ind_CdSe, Charges)
 
 ###
 ### OUTPUT
@@ -114,8 +85,6 @@ if indiv:
 
 # if individual info not requested, save charges to file
 if not indiv:
-    # output file name--this part is common to all the files
-    # out_name_beg = '.'.join(charges_input.split('.')[0:-1]) + str(norm_s_b) +'_'+str(np.around(min_surf,4))
     # ipr has just the beginning of the charge file as the filename
     np.savetxt('.'.join(charges_input.split('.')[0:-1]) + '_ipr_t.csv',ipr_write,delimiter=',')
 #'''
