@@ -16,7 +16,7 @@ def transformation(S):
         X_dagger = conjugate transpose of X
     '''
     S_eval, S_evec = npl.eigh(S)                     # extract eigenvalues and eigenvectors from overlap matrix
-
+    # print(S_eval)
     s_sqrt = np.diag(np.power(S_eval,-0.5))    # initialize s^-0.5, the diagonalized overlap matrix to the -1/2 power
 
 
@@ -42,6 +42,7 @@ def dos_grid(E_grid, sigma, E_orb, c):
     '''
     dos_grid=np.zeros(E_grid.shape)
     for i in range(0,len(c)):
+        # print(c[i])
         dos_grid += (c[i]/np.sqrt(2*np.pi*sigma**2))*np.exp(-(E_grid-E_orb[i])**2/(2*sigma**2))
     return dos_grid
 
@@ -87,6 +88,8 @@ def get_mul_low(P,S,X_inv,atoms,orb_per_atom,z):
     SPS = X_inv@P@X_inv
     low_perorb=np.diag(SPS)
 
+    # print(mul_perorb)
+
     mul=[]
     low=[]
     j = 0
@@ -107,42 +110,54 @@ def make_P_from_MO(mo_mat_unnorm,nocc):
     P=2*mo_mat_unnorm[:,0:nocc]@mo_mat_unnorm[:,0:nocc].T # reproduces qchem
     return P
 
-coeff_file = sys.argv[1] # hex version of qchem 53.0
-nbas=int(sys.argv[2])    # number of basis functions
-# xyz_file=sys.argv[3]        # whole dot xyz file (must correspond to core coordinates)
-# core_xyz_file = sys.argv[4] # core xyz file
-s_file=sys.argv[5] # 320
-p_file=sys.argv[6] # 54
-x_file=sys.argv[7] # 51
-atoms=np.array(['H','C','H','H','H'])
+def get_z(atoms):
+    z_dict = {'Cd':48-36,'Se':34-28,'S':16-10,'H':1,'C':6,'He':2}
+    z = np.zeros(len(atoms))
+    for i,atom in enumerate(atoms):
+        z[i]=z_dict[atom]
+    return z
+
+
+
+xyz_file=sys.argv[1]        # whole dot xyz file (must correspond to core coordinates)
+core_xyz_file = sys.argv[2] # core xyz file
+nbas=int(sys.argv[3])       # number of basis functions
+nocc=int(sys.argv[4])       # number of occupied basis functions
+coeff_file = sys.argv[5]    # hex version of qchem 53.0
+s_file=sys.argv[6]          # hex version of qchem 320.0
+charge_analysis=False       # make True for mulliken/lowdin analysis (just standard atomic charge)
+
+# read xyz files
+xyz,atoms=read_input_xyz(xyz_file)
+core_xyz,core_atoms=read_input_xyz(core_xyz_file)
 
 # number of orbitals per atom for each atom: 8 Se, 8 S, 18 Cd
 orb_per_atom_lanl2dz = {'Cd': 18, 'Se': 8, 'S': 8}
-orb_per_atom_sto3g={'C':5,'H':1,'He':1}
-orb_per_atom=orb_per_atom_sto3g
-
-# get MO matrix and energies
-z=np.array([1,6,1,1,1])
+# orb_per_atom_sto3g={'C':5,'H':1,'He':1} # for testing purposes
+# orb_per_atom_ccpvdz={'C':14,'H':5,'He':5} # for testing purposes
+orb_per_atom=orb_per_atom_lanl2dz
 
 S = make_s_matrix(s_file,nbas)  # 320.0
-P = 2*make_s_matrix(p_file,nbas)  # 54.0
+print('Done building S')
 mo_mat_unnorm,mo_e = make_mo_coeff_mat(coeff_file,nbas) # 53.0
+print('Done building C')
 X,X_dagger=transformation(S)
 X_inv = np.linalg.inv(X)
-
+print('Done building X')
+P=make_P_from_MO(mo_mat_unnorm,nocc) # to read in, use file 54.0
+print('Done building P')
 mo_mat= X_inv@mo_mat_unnorm
+print('Done with MO normalization')
+
 mo_mat_sum=np.sum(np.power(mo_mat,2),axis=0)
-print('MO normalization:',mo_mat_sum)
+print('MO normalization:',np.all(np.isclose(mo_mat_sum,1)))
 if not np.all(np.isclose(mo_mat_sum,1)): print("WARNING: MO's not normalized!")
-mulliken,lowdin=get_mul_low(P,S,X_inv,atoms,orb_per_atom,z)
-print('Mulliken charges for ',atoms,':',mulliken)
-print('Lowdin charges for ',atoms,':',lowdin)
 
+if charge_analysis:
+    mulliken,lowdin=get_mul_low(P,S,X_inv,atoms,orb_per_atom,z)
+    print('Mulliken charges for ',atoms,':',mulliken)
+    print('Lowdin charges for ',atoms,':',lowdin)
 
-'''
-# read xyz files
-xyz,atoms=read_input_xyz(xyz_file)
-# core_xyz,core_atoms=read_input_xyz(core_xyz_file)
 
 # get core/shell indices, and AO indices
 ind_core=np.full(atoms.shape,False)
@@ -153,7 +168,7 @@ for i,coord in enumerate(xyz):
     # print(i)
     j += n_ao
     atom = atoms[i]
-    n_ao = orb_per_atom_lanl2dz[atom]
+    n_ao = orb_per_atom[atom]
     # print(j,atom,n_ao)
     for coord2 in core_xyz:
         if np.all(coord2==coord):
@@ -173,28 +188,27 @@ mo_mat_shellonly = mo_mat[ind_shell_ao] # N MO (col) x N shell AO's (row)
 alpha_core = np.sum(np.power(mo_mat_coreonly,2),axis=0)
 alpha_shell = np.sum(np.power(mo_mat_shellonly,2),axis=0)
 
-# print(np.sum(np.power(mo_mat,2),axis=1))
 # check it adds to 1
-print(alpha_core+alpha_shell)
-'''
-'''
-mo_e = mo_e * 27.1
+print('Alphas add to 1?:',np.all(np.isclose(alpha_core+alpha_shell,1)))
+
+mo_e = mo_e * 27.2114
 # energy grid to evaluate the DOS over
-E_grid = np.arange(0.9*mo_e[0],1.1*mo_e[-1],0.01)
+E_grid = np.arange(1.5*mo_e[0],.5*mo_e[-1],0.001)
 # broadening parameter
 sigma=0.1
 
-# alpha_core=np.ones(alpha_core.shape)
 # calculate projected DOS
 core_dos = dos_grid(E_grid,sigma,mo_e,alpha_core)
 shell_dos=dos_grid(E_grid,sigma,mo_e,alpha_shell)
 
 # plot PDOS
 plt.figure()
-plt.plot(E_grid,core_dos)
-plt.plot(E_grid,shell_dos)
-# plt.stem(mo_e,alpha_core)
-# plt.stem(mo_e, alpha_shell)
+plt.plot(E_grid,core_dos,label='Core')
+plt.plot(E_grid,shell_dos,label='Shell')
+plt.plot(E_grid,core_dos+shell_dos,'k',label='Total')
+plt.legend()
 plt.xlim(-8,-2)
+plt.ylim(0,100)
+plt.ylabel('Density of States')
+plt.xlabel('Orbital Energy (eV)')
 plt.show()
-'''
