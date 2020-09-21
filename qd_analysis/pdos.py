@@ -1,7 +1,30 @@
 import numpy as np
+import numpy.linalg as npl
 import sys
 from qd_helper import read_input_xyz,write_xyz
 from matplotlib import pyplot as plt
+
+def transformation(S):
+    '''
+    Find the transformation vector, X, that orthogonalizes the basis set
+    Uses symmetric orthogonalization, as described in Szabo and Ostlund p 143
+
+    Inputs:
+        S = overlap matrix
+    Returns:
+        X = transformation matrix (S^-.5)
+        X_dagger = conjugate transpose of X
+    '''
+    S_eval, S_evec = npl.eigh(S)                     # extract eigenvalues and eigenvectors from overlap matrix
+
+    s_sqrt = np.diag(np.power(S_eval,-0.5))    # initialize s^-0.5, the diagonalized overlap matrix to the -1/2 power
+
+
+    U = S_evec                                   # find the unitary transform matrix
+    U_dagger = np.transpose(U)                        # find the conjugate transpose of the unitary matrix
+    X = np.dot(U, np.dot(s_sqrt, U_dagger))      # form X = S^-0.5, the transform matrix to orthogonalize the basis set
+    X_dagger = np.transpose(X)                   # conjugate transpose is just transpose since all values are real
+    return X, X_dagger
 
 def dos_grid(E_grid, sigma, E_orb, c):
     '''
@@ -58,93 +81,69 @@ def make_s_matrix(s_file_raw,nbas):
 
     return s_mat
 
-def get_x(x_file_raw,nbas):
-    x=np.zeros((nbas,nbas))
-    with open(x_file_raw,'r') as x_file:
-        x_lines=x_file.readlines()
-        xstart=int(nbas*(nbas+1)/2)
-        # print(xstart,nbas*(nbas+1)/2)
-        for i in range(0,nbas):
-            for j in range(0,nbas):
-                x_ind=i*nbas+j+xstart
-                x[j,i]=float(x_lines[x_ind])
-    return x
+def get_mul_low(P,S,X_inv,atoms,orb_per_atom,z):
+    PS = P@S
+    mul_perorb=np.diag(PS)
+    SPS = X_inv@P@X_inv
+    low_perorb=np.diag(SPS)
 
-def makeP(C, numocc, numbasis):
-    '''
-    Calculates the density matrix from the orbital expansion coefficients
+    mul=[]
+    low=[]
+    j = 0
+    for atom in atoms:
+        nbas_i = orb_per_atom[atom]
+        mul_AO = mul_perorb[j:j+nbas_i]
+        low_AO = low_perorb[j:j+nbas_i]
 
-    See Szabo and Ostlund p 139 eqn 3.145
+        mul.append(np.sum(mul_AO,axis=0))
+        low.append(np.sum(low_AO,axis=0))
+        j += nbas_i
 
-    Inputs:
-            C = matrix with orbital expansion coefficients
-            numatoms = number of atoms in the system
-            numbasis = total number of basis functions
-    Returns:
-            P = numpy array with the density matrix
-    '''
-    P = np.zeros((numbasis, numbasis))     # initialize
+    mul_charge=z-np.array(mul)
+    low_charge=z-np.array(low)
+    return mul_charge,low_charge
 
-    # mu, nu iterate over STO basis functions
-    for mu in range(0, numbasis):
-        for nu in range(0, numbasis):
-            Pmn = 0
-
-            # a iterates over the atoms
-            for a in range(0, numocc):
-                Pa = C[mu][a]*C[nu][a]
-                Pmn += 2*Pa
-            P[mu][nu] = Pmn
+def make_P_from_MO(mo_mat_unnorm,nocc):
+    P=2*mo_mat_unnorm[:,0:nocc]@mo_mat_unnorm[:,0:nocc].T # reproduces qchem
     return P
 
 coeff_file = sys.argv[1] # hex version of qchem 53.0
 nbas=int(sys.argv[2])    # number of basis functions
-xyz_file=sys.argv[3]        # whole dot xyz file (must correspond to core coordinates)
+# xyz_file=sys.argv[3]        # whole dot xyz file (must correspond to core coordinates)
 # core_xyz_file = sys.argv[4] # core xyz file
-s_file=sys.argv[4]
-p_file=sys.argv[5]
-x_file=sys.argv[6]
+s_file=sys.argv[5] # 320
+p_file=sys.argv[6] # 54
+x_file=sys.argv[7] # 51
+atoms=np.array(['H','C','H','H','H'])
 
 # number of orbitals per atom for each atom: 8 Se, 8 S, 18 Cd
-orb_per_atom_lanl2dz = {'Cd': 18, 'Se': 8, 'S': 8,'A':2, 'B': 3,'C':4,'H':1,'He':1}
+orb_per_atom_lanl2dz = {'Cd': 18, 'Se': 8, 'S': 8}
+orb_per_atom_sto3g={'C':5,'H':1,'He':1}
+orb_per_atom=orb_per_atom_sto3g
 
 # get MO matrix and energies
-z=np.array([1,2])
+z=np.array([1,6,1,1,1])
 
-S = make_s_matrix(s_file,nbas)
-P =make_s_matrix(p_file,nbas)
-X = get_x(x_file,nbas)
+S = make_s_matrix(s_file,nbas)  # 320.0
+P = 2*make_s_matrix(p_file,nbas)  # 54.0
+mo_mat_unnorm,mo_e = make_mo_coeff_mat(coeff_file,nbas) # 53.0
+X,X_dagger=transformation(S)
 X_inv = np.linalg.inv(X)
 
-mo_mat_unnorm,mo_e = make_mo_coeff_mat(coeff_file,nbas)
 mo_mat= X_inv@mo_mat_unnorm
 mo_mat_sum=np.sum(np.power(mo_mat,2),axis=0)
 print('MO normalization:',mo_mat_sum)
 if not np.all(np.isclose(mo_mat_sum,1)): print("WARNING: MO's not normalized!")
+mulliken,lowdin=get_mul_low(P,S,X_inv,atoms,orb_per_atom,z)
+print('Mulliken charges for ',atoms,':',mulliken)
+print('Lowdin charges for ',atoms,':',lowdin)
 
 
-PS = 2*P@S
-SPS = 2*X_inv@P@X_inv
-
-mulliken_charge=z-np.diag(PS)
-lowdin_charge=z-np.diag(SPS)
-
-
-print('Lowdin',lowdin_charge)
-print('Mulliken',mulliken_charge)
-
-
-
-# print(mo_mat_unnorm@mo_mat_unnorm.T)
-
-# mo_mat = mo_mat_unnorm/np.sqrt(np.sum(np.power(mo_mat_unnorm,2),axis=0))
-# print(mo_mat[0:10,0:10])
-# print(mo_e[0:10])
-
+'''
 # read xyz files
 xyz,atoms=read_input_xyz(xyz_file)
 # core_xyz,core_atoms=read_input_xyz(core_xyz_file)
-'''
+
 # get core/shell indices, and AO indices
 ind_core=np.full(atoms.shape,False)
 ind_core_ao = np.full(nbas,False)
