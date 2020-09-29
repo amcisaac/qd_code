@@ -183,7 +183,7 @@ def nn_histogram(xyz,ind_Cd,ind_Se,label1='',ind_attach=False,xyz2=False,label2=
     plt.hist(cdse_dists.flatten(),bins=800,label=label1) # crystal
     if np.any(xyz2): plt.hist(cdse_dists2.flatten(),bins=800,label=label2) # optimized
     if label2 !='': plt.legend()
-    plt.xlim(0,4)
+    plt.xlim(2.25,4)
     # plt.show()
     #
     if np.any(ind_attach):
@@ -193,7 +193,8 @@ def nn_histogram(xyz,ind_Cd,ind_Se,label1='',ind_attach=False,xyz2=False,label2=
         plt.hist(cdlig_dists.flatten(),bins=800,label=label1)
         if np.any(xyz2): plt.hist(cdlig_dists2.flatten(),bins=800,label=label2)
         if label2 !='': plt.legend()
-        plt.xlim(0,4)
-    plt.show()
+        plt.xlim(2.25,4)
+
+    # plt.show()
 
     return

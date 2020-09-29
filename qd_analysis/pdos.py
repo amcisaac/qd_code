@@ -162,6 +162,9 @@ if charge_analysis:
 # get core/shell indices, and AO indices
 ind_core=np.full(atoms.shape,False)
 ind_core_ao = np.full(nbas,False)
+ind_cd_ao = np.full(nbas,False)
+ind_se_ao = np.full(nbas,False)
+ind_s_ao = np.full(nbas,False)
 j=0
 n_ao = 0
 for i,coord in enumerate(xyz):
@@ -169,7 +172,10 @@ for i,coord in enumerate(xyz):
     j += n_ao
     atom = atoms[i]
     n_ao = orb_per_atom[atom]
-    # print(j,atom,n_ao)
+    if atom == 'Cd': ind_cd_ao[j:j+n_ao]=True
+    if atom == 'Se': ind_se_ao[j:j+n_ao]=True
+    if atom == 'S': ind_s_ao[j:j+n_ao]=True
+    print(j,atom,n_ao)
     for coord2 in core_xyz:
         if np.all(coord2==coord):
             # print(coord,j)
@@ -178,6 +184,10 @@ for i,coord in enumerate(xyz):
 
 ind_shell = np.logical_not(ind_core)
 ind_shell_ao = np.logical_not(ind_core_ao)
+
+ind_Cd = (atoms == 'Cd')
+ind_Se = (atoms == 'Se')
+ind_S = (atoms=='S')
 
 
 # separate the MO matrix into core and shell contributions
@@ -191,6 +201,26 @@ alpha_shell = np.sum(np.power(mo_mat_shellonly,2),axis=0)
 # check it adds to 1
 print('Alphas add to 1?:',np.all(np.isclose(alpha_core+alpha_shell,1)))
 
+mo_mat_cd = mo_mat[ind_cd_ao]
+mo_mat_se = mo_mat[ind_se_ao]
+mo_mat_s = mo_mat[ind_s_ao]
+
+ind_cd_core=np.logical_and(ind_cd_ao,ind_core_ao)
+ind_cd_shell=np.logical_and(ind_cd_ao,ind_shell_ao)
+
+mo_mat_cd_core=mo_mat[ind_cd_core]
+mo_mat_cd_shell = mo_mat[ind_cd_shell]
+
+# sum down the columns to get the total fraction of the orbital on core/shell
+alpha_cd = np.sum(np.power(mo_mat_cd,2),axis=0)
+alpha_se = np.sum(np.power(mo_mat_se,2),axis=0)
+alpha_s = np.sum(np.power(mo_mat_s,2),axis=0)
+
+alpha_cd_core=np.sum(np.power(mo_mat_cd_core,2),axis=0)
+alpha_cd_shell=np.sum(np.power(mo_mat_cd_shell,2),axis=0)
+
+print('Alphas add to 1?:',np.all(np.isclose(alpha_cd+alpha_se+alpha_s,1)))
+
 mo_e = mo_e * 27.2114
 # energy grid to evaluate the DOS over
 E_grid = np.arange(1.5*mo_e[0],.5*mo_e[-1],0.001)
@@ -201,11 +231,53 @@ sigma=0.1
 core_dos = dos_grid(E_grid,sigma,mo_e,alpha_core)
 shell_dos=dos_grid(E_grid,sigma,mo_e,alpha_shell)
 
+# calculate projected DOS
+cd_dos = dos_grid(E_grid,sigma,mo_e,alpha_cd)
+se_dos=dos_grid(E_grid,sigma,mo_e,alpha_se)
+s_dos=dos_grid(E_grid,sigma,mo_e,alpha_s)
+cd_core_dos = dos_grid(E_grid,sigma,mo_e,alpha_cd_core)
+cd_shell_dos = dos_grid(E_grid,sigma,mo_e,alpha_cd_shell)
+
 # plot PDOS
 plt.figure()
-plt.plot(E_grid,core_dos,label='Core')
-plt.plot(E_grid,shell_dos,label='Shell')
+plt.plot(E_grid,core_dos,'b',label='Core')
+plt.plot(E_grid,shell_dos,'r',label='Shell')
 plt.plot(E_grid,core_dos+shell_dos,'k',label='Total')
+plt.legend()
+plt.xlim(-8,-2)
+plt.ylim(0,100)
+plt.ylabel('Density of States')
+plt.xlabel('Orbital Energy (eV)')
+
+# plot PDOS
+plt.figure()
+plt.plot(E_grid,cd_dos,'c',label='Cd')
+plt.plot(E_grid,se_dos,color='orange',label='Se')
+plt.plot(E_grid,s_dos,'y',label='S')
+plt.plot(E_grid,cd_dos+se_dos+s_dos,'k',label='Total')
+plt.legend()
+plt.xlim(-8,-2)
+plt.ylim(0,100)
+plt.ylabel('Density of States')
+plt.xlabel('Orbital Energy (eV)')
+
+plt.figure()
+plt.plot(E_grid,cd_core_dos,'c',label='Cd (core)')
+plt.plot(E_grid,cd_shell_dos,'m',label='Cd (shell)')
+plt.plot(E_grid,se_dos,color='orange',label='Se')
+plt.plot(E_grid,s_dos,'y',label='S')
+plt.plot(E_grid,cd_dos+se_dos+s_dos,'k',label='Total')
+plt.legend()
+plt.xlim(-8,-2)
+plt.ylim(0,100)
+plt.ylabel('Density of States')
+plt.xlabel('Orbital Energy (eV)')
+
+# plot PDOS
+plt.figure()
+plt.plot(E_grid,se_dos,color='orange',label='Se')
+plt.plot(E_grid,core_dos,'b',label='Core')
+plt.plot(E_grid,cd_dos+se_dos+s_dos,'k',label='Total')
 plt.legend()
 plt.xlim(-8,-2)
 plt.ylim(0,100)
