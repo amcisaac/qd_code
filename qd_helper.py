@@ -65,8 +65,26 @@ def dist_atom12(all_dists,ind_1,ind_2):
     '''
     return all_dists[ind_1].T[ind_2].T
 
+def get_dists_cs(QD_xyz,ind_Cd,ind_Se,ind_shell_cd,ind_shell_chal):
+    all_dists = dist_all_points(QD_xyz)
+    cd_se_dists_all = dist_atom12(all_dists,ind_Cd,ind_Se) # cd (core) - se (core)
+    se_cd_dists_all = dist_atom12(all_dists,ind_Se,ind_Cd) # se (core) - cd (core)
 
-def get_dists(QD_xyz,ind_Cd,ind_Se,ind_attach=False):
+    ind_ses =np.logical_or(ind_Se,ind_shell_chal) # index of se and s atoms
+    ind_cdcd = np.logical_or(ind_Cd,ind_shell_cd) # index of all cd
+
+    # print(ind_ses)
+
+    cdcore_ses_dist = dist_atom12(all_dists,ind_Cd,ind_ses) # cd (core) - se and s
+    secore_cd_dist  = dist_atom12(all_dists,ind_Se,ind_cdcd) # se (core) - cd (core) and cd (shell)
+    cdshell_ses_dist = dist_atom12(all_dists,ind_shell_cd,ind_ses) # cd (shell) - se and s
+    sshell_cd_dist = dist_atom12(all_dists, ind_shell_chal,ind_cdcd) # s (shell) - cd (core) and cd (shell)
+    # print(all_dists,cd_se_dists_all,cdcore_ses_dist,secore_cd_dist,cdshell_ses_dist,sshell_cd_dist)
+
+    return all_dists,cd_se_dists_all,cdcore_ses_dist,secore_cd_dist,cdshell_ses_dist,sshell_cd_dist
+
+
+def get_dists(QD_xyz,ind_Cd,ind_Se,ind_attach=False,ind_shell_cd=False,ind_shell_chal=False,cs=False):
     '''
     Function that calculates the distance between all atoms, as well as
     the distance between two types of atoms.
@@ -100,6 +118,7 @@ def get_dists(QD_xyz,ind_Cd,ind_Se,ind_attach=False):
         cd_se_lig_dists_all = dist_atom12(all_dists,ind_Cd,ind_selig)
 
         return all_dists,cd_se_dists_all,cd_lig_dists_all,cd_se_lig_dists_all,se_cd_dists_all
+
 
     else:
         return all_dists,cd_se_dists_all,[],cd_se_dists_all,se_cd_dists_all
