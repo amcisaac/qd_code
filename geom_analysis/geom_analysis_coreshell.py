@@ -199,6 +199,23 @@ def write_underc_xyz(xyz,atom_name,ind_Cd,ind_Se,cd_underc_ind,se_underc_ind,fil
     write_xyz(filestart+'_cd.xyz', cd_underc_name, cd_underc_xyz,comment)
     return
 
+def plot_underc(nex,hole_sum_frac,e_sum_frac,n_underc1,n_atomtot,n_atom1,atomname):
+    plt.figure()
+    plt.bar(range(0,nex),hole_sum_frac)
+    plt.plot([0,nex],[n_underc1/(n_atomtot),n_underc1/(n_atomtot)],'k--',label='hole evenly distributed on all atoms')
+    plt.plot([0,nex],[n_underc1/(n_atom1),n_underc1/(n_atom1)],'r--',label='hole evenly distributed on all {}'.format(atomname))
+    plt.legend()
+    plt.xlabel('Excitation number')
+    plt.ylabel('Fraction of charge on {} undercoordinated {}'.format(n_underc1,atomname))
+
+    plt.figure()
+    plt.bar(range(0,nex),e_sum_frac)
+    plt.plot([0,nex],[n_underc1/(n_atomtot),n_underc1/(n_atomtot)],'k--',label='e evenly distributed on all atoms')
+    plt.plot([0,nex],[n_underc1/(n_atom1),n_underc1/(n_atom1)],'r--',label='e evenly distributed on all {}'.format(atomname))
+    plt.legend()
+    plt.xlabel('Excitation number')
+    plt.ylabel('Fraction of charge on {} undercoordinated {}'.format(n_underc1,atomname))
+
 ###
 ### USER SPECIFIED INFO
 ###
@@ -213,14 +230,12 @@ QD_file_start=sys.argv[1] # QD crystal xyz file
 core_xyz=sys.argv[2]
 QD_file_end=sys.argv[3]   # QD optimized xyz file
 charges_input = sys.argv[4]
+spectrum = sys.argv[5]
 # savename=sys.argv[4]
 
 QD_xyz_start,atom_name_start = read_input_xyz(QD_file_start)
 core_xyz_start,core_atom_name= read_input_xyz(core_xyz)
 QD_xyz_end,atom_name_end = read_input_xyz(QD_file_end)
-# Natoms = len(atom_name_start)
-
-# print(core_xyz_start[0] in QD_xyz_start)
 
 # UGH SO JANKY
 ind_core=np.full(atom_name_start.shape,False)
@@ -266,8 +281,7 @@ ind_attach = False
 #
 # plt.show()
 
-# # core/shell
-dist_list = get_dists_cs(QD_xyz_end,ind_core_Cd,ind_Se,ind_shell_Cd,ind_S)
+
 
 # np.savetxt('hist.csv',cdse_dists.flatten())
 #
@@ -296,6 +310,8 @@ dist_list = get_dists_cs(QD_xyz_end,ind_core_Cd,ind_Se,ind_shell_Cd,ind_S)
 # cd_underc_ind_e,se_underc_ind_e = get_underc_index(QD_xyz_end,ind_core_Cd,ind_Se,ind_lig,ind_attach,cutoff,nncutoff,verbose=True)
 # cd_core_underc_ind,se_core_underc_ind = get_underc_index_cs(QD_xyz_end,ind_core_Cd,ind_Se,ind_shell_Cd,ind_S,cutoff,nncutoff,verbose=True)
 
+# # core/shell
+dist_list = get_dists_cs(QD_xyz_end,ind_core_Cd,ind_Se,ind_shell_Cd,ind_S)
 cdcore_underc_ind,secore_underc_ind,cdcore_wshell_underc_ind,secore_wshell_underc_ind,cdshell_underc_ind,sshell_underc_ind=get_underc_index_cs(QD_xyz_end,ind_core_Cd,ind_Se,ind_shell_Cd,ind_S,cutoff,nncutoff,dist_list,verbose=True)
 
 #
@@ -358,52 +374,115 @@ print('Undercoordinated Se:',np.count_nonzero(sshell_underc_ind))
 # ####
 #
 # # reading in charges (same as surf vs bulk)
-# Charges_full=np.loadtxt(charges_input,delimiter=',',skiprows=1,dtype=str)
-# Charges = Charges_full[:-1,1:].astype(float)
+Charges_full=np.loadtxt(charges_input,delimiter=',',skiprows=1,dtype=str)
+Charges = Charges_full[:-1,1:].astype(float)
 #
 # # reshape indices of undercoordinated Se and Cd so they can index the charges
-# se_underc_ind_e_lg = copy.deepcopy(ind_Se)
-# se_underc_ind_e_lg[ind_Se] = se_underc_ind_e # USE INDICES FROM WHATEVER METHOD YOU PREFER
+
+# BARE CORE
+# # reshape indices of undercoordinated Se and Cd so they can index the charges
+secore_underc_ind_co = copy.deepcopy(ind_Se)
+# print(ind_Se.shape)
+secore_underc_ind_co[ind_Se] = secore_underc_ind # USE INDICES FROM WHATEVER METHOD YOU PREFER
+#                                              # this is the undercoordinated at the end of the optimization
+
+# print(se_underc_ind_co.shape)
+#
+cdcore_underc_ind_co = copy.deepcopy(ind_core_Cd)
+cdcore_underc_ind_co[ind_core_Cd] =cdcore_underc_ind # USE INDICES FROM WHATEVER METHOD YOU PREFER
+#                                             # this is the undercoordinated at the end of the optimization
+
+# SHELL W/ CORE ATOMS
+cdshell_underc_ind_sc = copy.deepcopy(ind_shell_Cd)
+cdshell_underc_ind_sc[ind_shell_Cd] =cdshell_underc_ind # USE INDICES FROM WHATEVER METHOD YOU PREFER
+#                                             # this is the undercoordinated at the end of the optimization
+
+s_underc_ind_sc = copy.deepcopy(ind_S)
+s_underc_ind_sc[ind_S] = sshell_underc_ind # USE INDICES FROM WHATEVER METHOD YOU PREFER
+#                                              # this is the undercoordinated at the end of the optimization
+
+# CORE W/ SHELL
+# # reshape indices of undercoordinated Se and Cd so they can index the charges
+se_underc_ind_cs = copy.deepcopy(ind_Se)
+se_underc_ind_cs[ind_Se] = secore_wshell_underc_ind # USE INDICES FROM WHATEVER METHOD YOU PREFER
 #                                              # this is the undercoordinated at the end of the optimization
 #
-# cd_underc_ind_e_lg = copy.deepcopy(ind_Cd)
-# cd_underc_ind_e_lg[ind_Cd] =cd_underc_ind_e # USE INDICES FROM WHATEVER METHOD YOU PREFER
+cdcore_underc_ind_cs = copy.deepcopy(ind_core_Cd)
+cdcore_underc_ind_cs[ind_core_Cd] =cdcore_wshell_underc_ind # USE INDICES FROM WHATEVER METHOD YOU PREFER
 #                                             # this is the undercoordinated at the end of the optimization
+
 #
 # # sum over charges
-# sum_charge = np.sum(Charges,axis=0)
-# sum_charge[np.nonzero(np.abs(sum_charge)<=1e-15)] = 1e-8 # sometimes delta is too small, replace with 1e-8
-#                                                          # we never use delta so shouldn't matter
+sum_charge = np.sum(Charges,axis=0)
+sum_charge[np.nonzero(np.abs(sum_charge)<=1e-15)] = 1e-8 # sometimes delta is too small, replace with 1e-8
+                                                         # we never use delta so shouldn't matter
 # # calculate charge fractions
-# chargefrac_tot = Charges/sum_charge
-# chargefrac_underc_se = chargefrac_tot[se_underc_ind_e_lg]
-# chargefrac_underc_cd = chargefrac_tot[cd_underc_ind_e_lg]
+chargefrac_tot = Charges/sum_charge
+# BARE CORE
+chargefrac_underc_secore_co = chargefrac_tot[secore_underc_ind_co]
+chargefrac_underc_cdcore_co = chargefrac_tot[cdcore_underc_ind_co]
+
+# shell w/ core
+chargefrac_underc_sshell_sc = chargefrac_tot[s_underc_ind_sc]
+chargefrac_underc_cdshell_sc = chargefrac_tot[cdshell_underc_ind_sc]
+
+#  CORE w/ shell
+chargefrac_underc_secore_cs = chargefrac_tot[se_underc_ind_cs]
+chargefrac_underc_cdcore_cs = chargefrac_tot[cdcore_underc_ind_cs]
+
 #
 # # sum charge fractions on undercoordinated atoms
-# sum_chargefrac_underc_se = np.sum(chargefrac_underc_se,axis=0)
-# sum_chargefrac_underc_cd = np.sum(chargefrac_underc_cd,axis=0)
+sum_chargefrac_underc_secore_co = np.sum(chargefrac_underc_secore_co,axis=0)
+sum_chargefrac_underc_cdcore_co = np.sum(chargefrac_underc_cdcore_co,axis=0)
+
+sum_chargefrac_underc_sshell_sc = np.sum(chargefrac_underc_sshell_sc,axis=0)
+sum_chargefrac_underc_cdshell_sc = np.sum(chargefrac_underc_cdshell_sc,axis=0)
+
+sum_chargefrac_underc_secore_cs = np.sum(chargefrac_underc_secore_cs,axis=0)
+sum_chargefrac_underc_cdcore_cs = np.sum(chargefrac_underc_cdcore_cs,axis=0)
 #
 # # reshape so that we have an array of shape (Nex, 3) where column 0 is electron
 # # charge sum, column 1 is hole charge sum, and column 2 is delta (ignored)
-# sum_underc_se_frac_reshape = np.reshape(sum_chargefrac_underc_se,(-1,3))
-# sum_underc_cd_frac_reshape = np.reshape(sum_chargefrac_underc_cd,(-1,3))
+sum_underc_secore_co_frac_reshape = np.reshape(sum_chargefrac_underc_secore_co,(-1,3))
+sum_underc_cdcore_co_frac_reshape = np.reshape(sum_chargefrac_underc_cdcore_co,(-1,3))
+
+sum_underc_sshell_sc_frac_reshape = np.reshape(sum_chargefrac_underc_sshell_sc,(-1,3))
+sum_underc_cdshell_sc_frac_reshape = np.reshape(sum_chargefrac_underc_cdshell_sc,(-1,3))
+
+sum_underc_secore_cs_frac_reshape = np.reshape(sum_chargefrac_underc_secore_cs,(-1,3))
+sum_underc_cdcore_cs_frac_reshape = np.reshape(sum_chargefrac_underc_cdcore_cs,(-1,3))
+
+
 #
 # # charge fraction sum for hole on undercoordinated atoms
-# hole_sum_frac_underc_se = sum_underc_se_frac_reshape[:,1]
-# hole_sum_frac_underc_cd = sum_underc_cd_frac_reshape[:,1]
+hole_sum_frac_underc_secore_co = sum_underc_secore_co_frac_reshape[:,1]
+hole_sum_frac_underc_cdcore_co = sum_underc_cdcore_co_frac_reshape[:,1]
 # # charge fraction sum for electron on undercoordinated atoms
-# electron_sum_frac_underc_se = sum_underc_se_frac_reshape[:,0]
-# electron_sum_frac_underc_cd = sum_underc_cd_frac_reshape[:,0]
+electron_sum_frac_underc_secore_co = sum_underc_secore_co_frac_reshape[:,0]
+electron_sum_frac_underc_cdcore_co = sum_underc_cdcore_co_frac_reshape[:,0]
+
+
+hole_sum_frac_underc_sshell_sc = sum_underc_sshell_sc_frac_reshape[:,1]
+hole_sum_frac_underc_cdshell_sc = sum_underc_cdshell_sc_frac_reshape[:,1]
+electron_sum_frac_underc_sshell_sc = sum_underc_sshell_sc_frac_reshape[:,0]
+electron_sum_frac_underc_cdshell_sc = sum_underc_cdshell_sc_frac_reshape[:,0]
 #
 # # number of each type of atom
-# n_underc_cd = float(np.count_nonzero(cd_underc_ind_e_lg))
-# n_underc_se = float(np.count_nonzero(se_underc_ind_e_lg))
-# n_cdse = float(np.count_nonzero(ind_CdSe))
-# n_se = float(np.count_nonzero(ind_Se))
-# n_cd = float(np.count_nonzero(ind_Cd))
-# nex = int(Charges.shape[1]/3)
+n_underc_cdcore_co = float(np.count_nonzero(cdcore_underc_ind))
+n_underc_secore_co = float(np.count_nonzero(secore_underc_ind))
+n_cdse_core = float(np.count_nonzero(ind_core))
+n_secore = float(np.count_nonzero(ind_Se))
+n_cdcore = float(np.count_nonzero(ind_core_Cd))
+
+n_underc_cdshell_sc = float(np.count_nonzero(cdshell_underc_ind))
+n_underc_sshell_sc = float(np.count_nonzero(sshell_underc_ind))
+n_cds_shell = float(np.count_nonzero(ind_shell))
+n_sshell = float(np.count_nonzero(ind_S))
+n_cdshell = float(np.count_nonzero(ind_shell_Cd))
+
+nex = int(Charges.shape[1]/3)
 #
-# underc_eh_charge=np.concatenate((sum_underc_se_frac_reshape[:,:2],sum_underc_cd_frac_reshape[:,:2]),axis=1)
+# underc_eh_charge_cdcoresecore_co=np.concatenate((sum_underc_secore_co_frac_reshape[:,:2],sum_underc_cdcore_co_frac_reshape[:,:2]),axis=1)
 # write_underc_charge=np.concatenate((np.array([[n_underc_se/n_se,n_underc_se/n_cdse,n_underc_cd/n_cd,n_underc_cd/n_cdse]]),underc_eh_charge))
 # # np.savetxt(savename,write_underc_charge,header='se_e,se_h,cd_e,cd_h',delimiter=',')
 #
@@ -414,49 +493,19 @@ print('Undercoordinated Se:',np.count_nonzero(sshell_underc_ind))
 # #
 # ####
 # '''
-# # hole, se
-# plt.figure()
-# plt.bar(range(0,nex),hole_sum_frac_underc_se)
-# plt.bar(range(0,nex),underc_eh_charge[:,1])
-# plt.plot([0,nex],[n_underc_se/(n_cdse),n_underc_se/(n_cdse)],'k--',label='hole evenly distributed on all cd,se')
-# plt.plot([0,nex],[n_underc_se/(n_se),n_underc_se/(n_se)],'r--',label='hole evenly distributed on all se')
-# plt.legend()
-# plt.xlabel('Excitation number')
-# plt.ylabel('Fraction of charge on {} undercoordinated Se'.format(n_underc_se))
-# # plt.show()
 #
-#
-# # hole, cd
-# plt.figure()
-# plt.bar(range(0,nex),hole_sum_frac_underc_cd)
-# plt.plot([0,nex],[n_underc_cd/(n_cdse),n_underc_cd/(n_cdse)],'k--',label='hole evenly distributed on all cd,se')
-# plt.plot([0,nex],[n_underc_cd/(n_cd),n_underc_cd/(n_cd)],'r--',label='hole evenly distributed on all cd')
-# plt.legend()
-# plt.xlabel('Excitation number')
-# plt.ylabel('Fraction of charge on {} undercoordinated Cd'.format(n_underc_cd))
-# # plt.show()
-#
-# # electron, se
-# plt.figure()
-# plt.bar(range(0,nex),electron_sum_frac_underc_se)
-# plt.bar(range(0,nex),underc_eh_charge[:,0])
-# plt.plot([0,nex],[n_underc_se/(n_cdse),n_underc_se/(n_cdse)],'k--',label='e evenly distributed on all cd,se')
-# plt.plot([0,nex],[n_underc_se/(n_se),n_underc_se/(n_se)],'r--',label='e evenly distributed on all se')
-# plt.legend()
-# plt.xlabel('Excitation number')
-# plt.ylabel('Fraction of charge on {} undercoordinated Se'.format(n_underc_se))
-# # plt.show()
-#
-# # electron, cd
-# plt.figure()
-# plt.bar(range(0,nex),electron_sum_frac_underc_cd)
-# plt.plot([0,nex],[n_underc_cd/(n_cdse),n_underc_cd/(n_cdse)],'k--',label='e evenly distributed on all cd,se')
-# plt.plot([0,nex],[n_underc_cd/(n_cd),n_underc_cd/(n_cd)],'r--',label='e evenly distributed on all cd')
-# plt.legend()
-# plt.xlabel('Excitation number')
-# plt.ylabel('Fraction of charge on {} undercoordinated Cd'.format(n_underc_cd))
-# plt.show()
-# '''
+
+    # plt.show()
+
+
+# plot_underc(nex,hole_sum_frac_underc_secore_co,electron_sum_frac_underc_secore_co,n_underc_secore_co,n_cdse_core,n_secore,'Se')
+# plot_underc(nex,hole_sum_frac_underc_cdcore_co,electron_sum_frac_underc_cdcore_co,n_underc_cdcore_co,n_cdse_core,n_cdcore,'Cd')
+
+plot_underc(nex,hole_sum_frac_underc_sshell_sc,electron_sum_frac_underc_sshell_sc,n_underc_sshell_sc,n_cds_shell,n_sshell,'S')
+plot_underc(nex,hole_sum_frac_underc_cdshell_sc,electron_sum_frac_underc_cdshell_sc,n_underc_cdshell_sc,n_cds_shell,n_cdshell,'Cd')
+
+plt.show()
+
 #
 # ####
 # #
