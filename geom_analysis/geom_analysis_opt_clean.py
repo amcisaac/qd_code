@@ -152,7 +152,7 @@ lig_atom = "O" # atom that attaches to the Cd in the ligand
 
 QD_file_start=sys.argv[1] # QD crystal xyz file
 QD_file_end=sys.argv[2]   # QD optimized xyz file
-charges_input = sys.argv[3]
+# charges_input = sys.argv[3]
 # savename=sys.argv[4]
 
 QD_xyz_start,atom_name_start = read_input_xyz(QD_file_start)
