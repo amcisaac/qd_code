@@ -9,7 +9,7 @@ from geom_helper import *
 Script to do geometry analysis of CdSe QD's and determine if any surface atoms are
 undercoordinated.
 
-Usage: python3 geom_analysis_opt_clean.py [xyz file of crystal structure] [xyz file of optimized structure]
+Usage: python3 geom_analysis_opt_clean.py [xyz file of crystal structure] [xyz file of optimized structure] [lowdin charge file]
 '''
 
 def plot_underc(Eex,sum_frac,n_underc1,n_atomtot,n_atom1,atomname,w=0.01,savefig=False):
