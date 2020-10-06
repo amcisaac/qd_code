@@ -258,8 +258,53 @@ def sum_chargefrac(chargefrac_tot,ind_orig,ind_underc):
     large_underc_ind = get_underc_ind_large(ind_orig,ind_underc)
     chargefrac_underc = chargefrac_tot[large_underc_ind]
     sum_chargefrac_underc= np.sum(chargefrac_underc,axis=0)
+    # reshape so that we have an array of shape (Nex, 3) where column 0 is electron
+    # charge sum, column 1 is hole charge sum, and column 2 is delta (ignored)
     sum_underc_reshape = np.reshape(sum_chargefrac_underc,(-1,3))
     return sum_underc_reshape
+
+
+def print_indiv_ex(chargefrac_tot,ind_orig,ind_underc,n,atomname):
+    large_underc_ind = get_underc_ind_large(ind_orig,ind_underc)
+    chargefrac_underc = chargefrac_tot[large_underc_ind]
+    sum_chargefrac_underc= np.sum(chargefrac_underc,axis=0)
+
+    print('')
+    print('Fraction of charge on each undercoordinated {} for excitation {}:'.format(atomname,n))
+    print('   e           h')
+    print(chargefrac_underc[:,3*n:3*n+2])
+    print('')
+    print('Sum of charge on undercoordinated {} for excitation {}:'.format(atomname,n))
+    print('   e           h')
+    print(sum_chargefrac_underc[3*n:3*n+2])
+
+    max_ind = np.argmax(chargefrac_tot,axis=0) # index of the largest charge fraction on any atom
+    max_charge=np.max(chargefrac_tot,axis=0)   # largest charge fraction on any atom
+    print('')
+    print('Largest charge fraction on any atom for excitation {}:'.format(n))
+    print('   e           h')
+    print(max_charge[3*n:3*n+2])
+    print('')
+    print('Is the largest charge fraction on an undercoordinated {}?'.format(atomname))
+    print('   e     h')
+    print(np.any(chargefrac_underc[:,3*n:3*n+2]==max_charge[3*n:3*n+2],axis=0))
+    # print(atom_name_start[max_ind][3*n:3*n+3]) # atom name with largest charge fraction
+
+    # creates an array (Nex, 3) where each entry is whether the max charge fraction is on an undercoordinated se
+    # found this wasn't useful because it's almost always on it, even for bulk excitations
+    max_is_underc_long = np.any(chargefrac_underc==max_charge,axis=0)
+    max_is_underc= np.reshape(max_is_underc_long,(-1,3))
+    # print(max_is_underc[100:120])
+
+    # finds the top 5 highest charge fractions on any atom
+    top5_ind = np.argpartition(-chargefrac_tot,5,axis=0)[:5] # index of top 5
+    top5 = np.take_along_axis(chargefrac_tot,top5_ind,axis=0) # value of top 5
+    print('')
+    print('Top 5 largest charge fractions on any atom for excitation {}:'.format(n))
+    print('   e           h')
+    print(top5[:,3*n:3*n+2])
+
+    return
 
 ###
 ### USER SPECIFIED INFO
@@ -502,13 +547,7 @@ sum_underc_cdcore_co_amb = sum_chargefrac(chargefrac_tot,ind_core_Cd,cdcore_unde
 sum_underc_secore_cs_amb = sum_chargefrac(chargefrac_tot,ind_Se,secore_wshell_underc_ind_amb)
 sum_underc_cdcore_cs_amb = sum_chargefrac(chargefrac_tot,ind_core_Cd,cdcore_wshell_underc_ind_amb)
 
-print(np.all(np.isclose(sum_underc_sshell_sc_amb,sum_underc_sshell_sc)))
 
-#
-# underc_eh_charge_cdcoresecore_co=np.concatenate((sum_underc_secore_co_frac_reshape[:,:2],sum_underc_cdcore_co_frac_reshape[:,:2]),axis=1)
-# write_underc_charge=np.concatenate((np.array([[n_underc_se/n_se,n_underc_se/n_cdse,n_underc_cd/n_cd,n_underc_cd/n_cdse]]),underc_eh_charge))
-# # np.savetxt(savename,write_underc_charge,header='se_e,se_h,cd_e,cd_h',delimiter=',')
-#
 # ####
 # #
 # # PLOTTING CHARGE FRACTIONS FOR ALL EXCITATIONS
@@ -524,7 +563,7 @@ nex = range(0,len(Eex))
 #
 
 # SHELL--including core as NN
-# plot_underc(Eex,sum_underc_sshell_sc,n_underc_sshell_sc,n_cds_shell,n_sshell,'S')
+plot_underc(Eex,sum_underc_sshell_sc,n_underc_sshell_sc,n_cds_shell,n_sshell,'S')
 # plot_underc(Eex,sum_underc_cdshell_sc,n_underc_cdshell_sc,n_cds_shell,n_cdshell,'Cd')
 
 # plot_underc(Eex,sum_underc_sshell_sc_amb,n_underc_sshell_sc_amb,n_cds_shell,n_sshell,'S')
@@ -536,7 +575,7 @@ nex = range(0,len(Eex))
 # plot_underc_compare(nex,sum_underc_sshell_sc,sum_underc_sshell_sc_amb,n_underc_sshell_sc,n_underc_sshell_sc_amb,n_cds_shell,n_sshell,'S',w=1)#,savefig=['sshell_underc_sc_h_comparecut_2p8_3.pdf','sshell_underc_sc_e_comparecut_2p8_3.pdf'])
 # plot_underc_compare(nex,sum_underc_cdshell_sc,sum_underc_cdshell_sc_amb,n_underc_cdshell_sc,n_underc_cdshell_sc_amb,n_cds_shell,n_cdshell,'Cd',w=1)#,w=1,savefig=['cdshell_underc_sc_h_comparecut_2p8_3.pdf','cdshell_underc_sc_e_comparecut_2p8_3.pdf'])
 
-# plt.show()
+plt.show()
 
 # print(np.count_nonzero(sum_underc_sshell_sc_amb[:,0:2] > sum_underc_sshell_sc[:,0:2],axis=0))
 
@@ -546,48 +585,4 @@ nex = range(0,len(Eex))
 # # PRINTS INFO ABOUT SPECIFIC EXCITATIONS
 # #
 # ####
-# '''
-# n=0
-#
-# print('')
-# print('Fraction of charge on each undercoordinated Se for excitation {}:'.format(n))
-# print('   e           h')
-# print(chargefrac_underc_se[:,3*n:3*n+2])
-# print('')
-# print('Sum of charge on undercoordinated Se for excitation {}:'.format(n))
-# print('   e           h')
-# print(sum_chargefrac_underc_se[3*n:3*n+2])
-#
-# max_ind = np.argmax(chargefrac_tot,axis=0) # index of the largest charge fraction on any atom
-# max_charge=np.max(chargefrac_tot,axis=0)   # largest charge fraction on any atom
-# print('')
-# print('Largest charge fraction on any atom for excitation {}:'.format(n))
-# print('   e           h')
-# print(max_charge[3*n:3*n+2])
-# print('')
-# print('Is the largest charge fraction on an undercoordinated Se?')
-# print('   e     h')
-# print(np.any(chargefrac_underc_se[:,3*n:3*n+2]==max_charge[3*n:3*n+2],axis=0))
-# # print(atom_name_start[max_ind][3*n:3*n+3]) # atom name with largest charge fraction
-#
-# # creates an array (Nex, 3) where each entry is whether the max charge fraction is on an undercoordinated se
-# # found this wasn't useful because it's almost always on it, even for bulk excitations
-# max_is_underc_long = np.any(chargefrac_underc_se==max_charge,axis=0)
-# max_is_underc= np.reshape(max_is_underc_long,(-1,3))
-# # print(max_is_underc[100:120])
-#
-# # finds the top 5 highest charge fractions on any atom
-# top5_ind = np.argpartition(-chargefrac_tot,5,axis=0)[:5] # index of top 5
-# top5 = np.take_along_axis(chargefrac_tot,top5_ind,axis=0) # value of top 5
-# print('')
-# print('Top 5 largest charge fractions on any atom for excitation {}:'.format(n))
-# print('   e           h')
-# print(top5[:,3*n:3*n+2])
-#
-# # charge fraction on undercordinated se as a ratio of the max
-# # print(chargefrac_underc_se[:,3*n:3*n+3]/np.max(chargefrac_tot,axis=0)[3*n:3*n+3])
-# '''
-#
-# # potential interesting analyses:
-# # -some way of measuring if max atom is near undercoordinated
-#
+# print_indiv_ex(chargefrac_tot,ind_S,sshell_underc_ind,0,'S')
