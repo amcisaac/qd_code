@@ -137,8 +137,18 @@ def write_underc_xyz(xyz,atom_name,ind_Cd,ind_Se,cd_underc_ind,se_underc_ind,fil
 
 def get_underc_ind_large(ind_orig,ind_underc):
     '''
-    Returns index for undercoordinated atom type, with the dimensions of the original number of atoms
-    e.g. under coordinated Se index for Cd33Se33 will be len 33, this will return len 66 for use with other properties
+    Returns index for undercoordinated atom type, with the dimensions of the
+    original number of atoms e.g. under coordinated Se index for Cd33Se33 will
+    be len 33, this will return len 66 for use with other properties
+
+    Inputs:
+        ind_orig: index array for all atoms of X type (size: Natoms(total))
+        ind_underc: index array for all undercoordinated atoms of X type
+            (size: number of atoms of X type)
+
+    Returns:
+        large_underc_ind: index array for undercoordinated atoms of type X,
+            mapped back to size of ind_orig (size: Natoms (total))
     '''
     large_underc_ind = copy.deepcopy(ind_orig)
     large_underc_ind[ind_orig] = ind_underc # USE INDICES FROM WHATEVER METHOD YOU PREFER
@@ -146,6 +156,20 @@ def get_underc_ind_large(ind_orig,ind_underc):
     return large_underc_ind
 
 def sum_chargefrac(chargefrac_tot,ind_orig,ind_underc):
+    '''
+    Sums the charge fraction on the undercoordinated atoms and shapes array into (Nex,3)
+
+    Inputs:
+        chargefrac_tot: array of normalized charges on each atom
+        ind_orig: index array for all atoms of X type (size: Natoms(total))
+        ind_underc: index array for all undercoordinated atoms of X type
+            (size: number of atoms of X type)
+
+    Returns:
+        sum_underc_reshape: array with summed charges on the undercoordinated
+            atom for each excitation. Size (Nex,3) where col. 0 is electron,
+            col. 1 is hole, col. 2 is delta (ignore)
+    '''
     large_underc_ind = get_underc_ind_large(ind_orig,ind_underc)
     chargefrac_underc = chargefrac_tot[large_underc_ind]
     sum_chargefrac_underc= np.sum(chargefrac_underc,axis=0)
@@ -156,6 +180,17 @@ def sum_chargefrac(chargefrac_tot,ind_orig,ind_underc):
 
 
 def print_indiv_ex(chargefrac_tot,ind_orig,ind_underc,n,atomname):
+    '''
+    Prints charge info about specific excitations and atom types
+
+    Inputs:
+        chargefrac_tot: array of normalized charges on each atom
+        ind_orig: index array for all atoms of X type (size: Natoms(total))
+        ind_underc: index array for all undercoordinated atoms of X type
+            (size: number of atoms of X type)
+        n: excitation number
+        atomname: name of the atom (just for printing)
+    '''
     large_underc_ind = get_underc_ind_large(ind_orig,ind_underc)
     chargefrac_underc = chargefrac_tot[large_underc_ind]
     sum_chargefrac_underc= np.sum(chargefrac_underc,axis=0)
