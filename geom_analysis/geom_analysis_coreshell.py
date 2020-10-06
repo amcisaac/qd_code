@@ -273,41 +273,37 @@ sum_underc_secore_cs_amb = sum_chargefrac(chargefrac_tot,ind_Se,secore_wshell_un
 sum_underc_cdcore_cs_amb = sum_chargefrac(chargefrac_tot,ind_core_Cd,cdcore_wshell_underc_ind_amb)
 
 
-# ####
-# #
-# # PLOTTING CHARGE FRACTIONS FOR ALL EXCITATIONS
-# # if not using undercoordination as your metric, change axis titles
-# #
-# ####
-# '''
+####
+#
+# PLOTTING CHARGE FRACTIONS FOR ALL EXCITATIONS
+# if not using undercoordination as your metric, change axis titles
+#
+####
+
 nex = range(0,len(Eex))
 # BARE CORE--if there were no shell
-
 # plot_underc(nex,sum_underc_secore_co,n_underc_secore_co,n_cdse_core,n_secore,'Se',w=1,savefig=['secore_underc_co_h_3cut.pdf','secore_underc_co_e_3cut.pdf'])
 # plot_underc(nex,sum_underc_cdcore_co,n_underc_cdcore_co,n_cdse_core,n_cdcore,'Cd',w=1,savefig=['cdcore_underc_co_h_3cut.pdf','cdcore_underc_co_e_3cut.pdf'])
-#
 
 # SHELL--including core as NN
+# larger cutoff
 plot_underc(Eex,sum_underc_sshell_sc,n_underc_sshell_sc,n_cds_shell,n_sshell,'S')
 # plot_underc(Eex,sum_underc_cdshell_sc,n_underc_cdshell_sc,n_cds_shell,n_cdshell,'Cd')
 
+# smaller cutoff
 # plot_underc(Eex,sum_underc_sshell_sc_amb,n_underc_sshell_sc_amb,n_cds_shell,n_sshell,'S')
 # plot_underc(Eex,sum_underc_cdshell_sc_amb,n_underc_cdshell_sc_amb,n_cds_shell,n_cdshell,'Cd')
-#
 
-#AMBIGUOUS
+#AMBIGUOUS comparison
 # SHELL--including core as NN
 # plot_underc_compare(nex,sum_underc_sshell_sc,sum_underc_sshell_sc_amb,n_underc_sshell_sc,n_underc_sshell_sc_amb,n_cds_shell,n_sshell,'S',w=1)#,savefig=['sshell_underc_sc_h_comparecut_2p8_3.pdf','sshell_underc_sc_e_comparecut_2p8_3.pdf'])
 # plot_underc_compare(nex,sum_underc_cdshell_sc,sum_underc_cdshell_sc_amb,n_underc_cdshell_sc,n_underc_cdshell_sc_amb,n_cds_shell,n_cdshell,'Cd',w=1)#,w=1,savefig=['cdshell_underc_sc_h_comparecut_2p8_3.pdf','cdshell_underc_sc_e_comparecut_2p8_3.pdf'])
 
 plt.show()
 
-# print(np.count_nonzero(sum_underc_sshell_sc_amb[:,0:2] > sum_underc_sshell_sc[:,0:2],axis=0))
-
+####
 #
-# ####
-# #
-# # PRINTS INFO ABOUT SPECIFIC EXCITATIONS
-# #
-# ####
+# PRINTS INFO ABOUT SPECIFIC EXCITATIONS
+#
+####
 # print_indiv_ex(chargefrac_tot,ind_S,sshell_underc_ind,0,'S')
