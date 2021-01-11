@@ -18,6 +18,8 @@ with open(args.inputfile,'r') as inp:
     flag2=0
     if args.opt_cycle:
         flag3 = 0
+        if int(args.opt_cycle) == 0:
+            flag3=1
     else:
         flag3=1
     occ = "Occupied"

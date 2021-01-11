@@ -39,14 +39,19 @@ def plot_underc(Eex,sum_frac,n_underc1,n_atomtot,n_atom1,atomname,w=0.01,savefig
 ### USER SPECIFIED INFO
 ###
 
-cutoff = 2.8  # nearest neighbor cutoff distance (lowest)
+cutoff = 3.0  # nearest neighbor cutoff distance (lowest)
 print('cutoff: ',cutoff)
 cutoff2 = 3.3 # nearest neighbor cutoff distance (highest)
 nncutoff = 3  # number of nearest neighbors to be considered "unpassivated" (incl. ligands)
 lig_atom = "O" # atom that attaches to the Cd in the ligand
+label2 = 'optimized'
+print('ligand attach atom: ',lig_atom)
+
 
 QD_file_start=sys.argv[1] # QD crystal xyz file
 QD_file_end=sys.argv[2]   # QD optimized xyz file
+qd_beg_filename = '.'.join(QD_file_end.split('.')[0:-1])
+print('Analyzing file '+QD_file_end)
 charges_input = sys.argv[3]
 # savename=sys.argv[4]
 
@@ -68,10 +73,11 @@ ind_attach = (atom_name_start == lig_atom)
 #
 ####
 
-nn_histogram(QD_xyz_start,ind_Cd,ind_Se,label1='crystal',ind_attach=ind_attach,xyz2=QD_xyz_end,label2='optimized')
+# nn_histogram(QD_xyz_start,ind_Cd,ind_Se,label1='crystal',ind_attach=ind_attach,xyz2=QD_xyz_end,label2=label2)
 # plt.show()
-# all_dists,cdse_dists,cdlig_dists,cdselig_dists,secd_dists = get_dists(QD_xyz_end,ind_Cd,ind_Se,ind_attach)
-# np.savetxt('hist.csv',cdse_dists.flatten())
+all_dists,cdse_dists,cdlig_dists,cdselig_dists,secd_dists = get_dists(QD_xyz_end,ind_Cd,ind_Se,ind_attach)
+np.savetxt(qd_beg_filename+'_hist.csv',cdse_dists.flatten())
+print('Saving histogram data to '+qd_beg_filename+'_hist.csv')
 
 ####
 #
@@ -79,11 +85,11 @@ nn_histogram(QD_xyz_start,ind_Cd,ind_Se,label1='crystal',ind_attach=ind_attach,x
 #
 ####
 # '''
-cd_underc_ind_s,se_underc_ind_s = get_underc_index(QD_xyz_start,ind_Cd,ind_Se,ind_lig,ind_attach,cutoff,nncutoff,verbose=False)
-
-print('Starting geometry')
-print('Undercoordinated Cd:',np.count_nonzero(cd_underc_ind_s))
-print('Undercoordinated Se:',np.count_nonzero(se_underc_ind_s))
+# cd_underc_ind_s,se_underc_ind_s = get_underc_index(QD_xyz_start,ind_Cd,ind_Se,ind_lig,ind_attach,cutoff,nncutoff,verbose=False)
+#
+# print('Starting geometry')
+# print('Undercoordinated Cd:',np.count_nonzero(cd_underc_ind_s))
+# print('Undercoordinated Se:',np.count_nonzero(se_underc_ind_s))
 '''
 beg_s = '.'.join(QD_file_start.split('.')[0:-1])
 comment_s='Undercoordinated atoms from '+QD_file_start + ' cutoff '+str(cutoff)
@@ -97,7 +103,7 @@ write_underc_xyz(QD_xyz_start,atom_name_start,ind_Cd,ind_Se,cd_underc_ind_s,se_u
 
 cd_underc_ind_e,se_underc_ind_e = get_underc_index(QD_xyz_end,ind_Cd,ind_Se,ind_lig,ind_attach,cutoff,nncutoff,verbose=False)
 
-print('Optimized geometry')
+# print('Optimized geometry')
 print('Undercoordinated Cd:',np.count_nonzero(cd_underc_ind_e))
 print('Undercoordinated Se:',np.count_nonzero(se_underc_ind_e))
 '''
@@ -144,7 +150,7 @@ write_underc_xyz(QD_xyz_end,atom_name_end,ind_Cd,ind_Se,ind_opt_cd_neg,ind_opt_s
 # CHARGE ANALYSIS
 #
 ####
-
+'''
 # reading in charges (same as surf vs bulk)
 Charges_full=np.loadtxt(charges_input,delimiter=',',skiprows=1,dtype=str)
 Charges = Charges_full[:-1,1:].astype(float)
@@ -200,3 +206,4 @@ plt.show()
 ####
 
 print_indiv_ex(chargefrac_tot,ind_Se,se_underc_ind_e,0,'Se')
+'''
