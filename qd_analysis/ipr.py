@@ -86,7 +86,7 @@ if indiv:
 # if individual info not requested, save charges to file
 if not indiv:
     # ipr has just the beginning of the charge file as the filename
-    np.savetxt('.'.join(charges_input.split('.')[0:-1]) + '_ipr_t.csv',ipr_write,delimiter=',')
+    np.savetxt('.'.join(charges_input.split('.')[0:-1]) + '_ipr.csv',ipr_write,delimiter=',')
 #'''
 
 # # TODO: more functions/organization?, warnings for if alpha negative?
