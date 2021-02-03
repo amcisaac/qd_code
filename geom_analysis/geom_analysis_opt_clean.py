@@ -43,7 +43,7 @@ cutoff = 3.0  # nearest neighbor cutoff distance (lowest)
 print('cutoff: ',cutoff)
 cutoff2 = 3.3 # nearest neighbor cutoff distance (highest)
 nncutoff = 3  # number of nearest neighbors to be considered "unpassivated" (incl. ligands)
-lig_atom = "O" # atom that attaches to the Cd in the ligand
+lig_atom = "N" # atom that attaches to the Cd in the ligand
 label2 = 'optimized'
 print('ligand attach atom: ',lig_atom)
 
@@ -65,8 +65,12 @@ if not np.all(atom_name_start==atom_name_end):
 
 # getting indices of different types of atoms
 # atom order shouldn't change in optimization, so just need one set
-ind_Cd, ind_Se, ind_CdSe, ind_lig, ind_selig=parse_ind(atom_name_start,lig_atom)
+# ind_Cd, ind_Se, ind_CdSe, ind_lig, ind_selig=parse_ind(atom_name_start,lig_atom)
+ind_Cd = atom_name_start=='Cd'
+ind_Se = atom_name_start=='Se'
+ind_CdSe= np.logical_or(ind_Cd,ind_Se)
 ind_attach = (atom_name_start == lig_atom)
+ind_lig=ind_attach
 
 ####
 #
@@ -151,7 +155,7 @@ write_underc_xyz(QD_xyz_end,atom_name_end,ind_Cd,ind_Se,ind_opt_cd_neg,ind_opt_s
 # CHARGE ANALYSIS
 #
 ####
-
+'''
 # reading in charges (same as surf vs bulk)
 Charges_full=np.loadtxt(charges_input,delimiter=',',skiprows=1,dtype=str)
 Charges = Charges_full[:-1,1:].astype(float)
@@ -228,7 +232,7 @@ print('Percent of excitations with >N_deloc ({}) of hole on UC Se: '.format(n_de
 print('Percent of excitations with >N_deloc*2  ({})of hole on UC Se: '.format(2*n_deloc*100),100*np.count_nonzero(sum_underc_se_frac_reshape[:,1]>n_deloc*2)/nex, '(',np.count_nonzero(sum_underc_se_frac_reshape[:,1]>n_deloc*2),')')
 print('Percent of excitations with <=N_deloc ({}) of hole on UC Se: '.format(n_deloc*100),100*np.count_nonzero(sum_underc_se_frac_reshape[:,1]<=n_deloc)/nex, '(',np.count_nonzero(sum_underc_se_frac_reshape[:,1]<=n_deloc),')')
 print('Percent of excitations with <=N_deloc*2 ({}) of hole on UC Se: '.format(2*n_deloc*100),100*np.count_nonzero(sum_underc_se_frac_reshape[:,1]<=n_deloc*2)/nex, '(',np.count_nonzero(sum_underc_se_frac_reshape[:,1]<=n_deloc*2),')')
-
+'''
 ####
 #
 # PRINTS INFO ABOUT SPECIFIC EXCITATIONS

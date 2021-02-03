@@ -71,7 +71,7 @@ def plot_underc_compare(Eex,sum_frac,sum_frac2,n_underc1,n_underc2,n_atomtot,n_a
 ### USER SPECIFIED INFO
 ###
 
-cutoff = 3.0 # nearest neighbor cutoff distance (lowest)
+cutoff = 3.5 # nearest neighbor cutoff distance (lowest)
 print('cutoff: ',cutoff)
 cutoff2 = 2.8 # nearest neighbor cutoff distance (highest)
 nncutoff = 3  # number of nearest neighbors to be considered "unpassivated" (incl. ligands)
@@ -88,7 +88,7 @@ QD_xyz_start,atom_name_start = read_input_xyz(QD_file_start)
 core_xyz_start,core_atom_name= read_input_xyz(core_xyz)
 QD_xyz_end,atom_name_end = read_input_xyz(QD_file_end)
 
-Eex = np.loadtxt(spectrum,delimiter=',',usecols=2,skiprows=1,dtype=float)
+# Eex = np.loadtxt(spectrum,delimiter=',',usecols=2,skiprows=1,dtype=float)
 
 # UGH SO JANKY
 ind_core=np.full(atom_name_start.shape,False)
@@ -238,7 +238,7 @@ print('Undercoordinated S :',np.count_nonzero(sshell_underc_ind_amb))
 #
 ####
 
-
+'''
 # # reading in charges (same as surf vs bulk)
 Charges_full=np.loadtxt(charges_input,delimiter=',',skiprows=1,dtype=str)
 Charges = Charges_full[:-1,1:].astype(float)
@@ -300,7 +300,7 @@ plot_underc(Eex,sum_underc_sshell_sc,n_underc_sshell_sc,n_cds_shell,n_sshell,'S'
 # plot_underc_compare(nex,sum_underc_cdshell_sc,sum_underc_cdshell_sc_amb,n_underc_cdshell_sc,n_underc_cdshell_sc_amb,n_cds_shell,n_cdshell,'Cd',w=1)#,w=1,savefig=['cdshell_underc_sc_h_comparecut_2p8_3.pdf','cdshell_underc_sc_e_comparecut_2p8_3.pdf'])
 
 plt.show()
-
+'''
 ####
 #
 # PRINTS INFO ABOUT SPECIFIC EXCITATIONS
