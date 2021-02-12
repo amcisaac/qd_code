@@ -1,3 +1,5 @@
+import matplotlib as mpl
+mpl.use('Agg')
 import numpy as np
 import numpy.linalg as npl
 import sys
@@ -305,20 +307,20 @@ if underc:
     s_uc_dos = dos_grid(E_grid,sigma,mo_e,alpha_s_uc)
     shell_fc_dos = dos_grid(E_grid,sigma,mo_e,alpha_shell_fc)
 
-
+x_limit = (mo_e[homo]-3,mo_e[homo+1]+3)
 '''
 plotting PDOS--core/shell
 '''
-# plot PDOS
-# plt.figure()
-# plt.plot(E_grid,core_dos,'b',label='Core')
-# plt.plot(E_grid,shell_dos,'r',label='Shell')
-# plt.plot(E_grid,core_dos+shell_dos,'k',label='Total')
-# plt.legend()
-# plt.xlim(-8,-2)
-# plt.ylim(0,100)
-# plt.ylabel('Density of States')
-# plt.xlabel('Orbital Energy (eV)')
+plot PDOS
+plt.figure()
+plt.plot(E_grid,core_dos,'b',label='Core')
+plt.plot(E_grid,shell_dos,'r',label='Shell')
+plt.plot(E_grid,core_dos+shell_dos,'k',label='Total')
+plt.legend()
+plt.xlim(x_limit)
+plt.ylim(0,100)
+plt.ylabel('Density of States')
+plt.xlabel('Orbital Energy (eV)')
 # plt.show()
 
 
@@ -340,17 +342,17 @@ plotting PDOS--cd, s, se
 '''
 plotting PDOS--core cd, shell cd, s, se
 '''
-# plt.figure()
-# plt.plot(E_grid,cd_core_dos,'c',label='Cd (core)')
-# plt.plot(E_grid,cd_shell_dos,'m',label='Cd (shell)')
-# plt.plot(E_grid,se_dos,color='orange',label='Se')
-# plt.plot(E_grid,s_dos,'y',label='S')
-# plt.plot(E_grid,cd_core_dos+cd_shell_dos+se_dos+s_dos,'k',label='Total')
-# plt.legend()
-# plt.xlim(-8,-2)
-# plt.ylim(0,100)
-# plt.ylabel('Density of States')
-# plt.xlabel('Orbital Energy (eV)')
+plt.figure()
+plt.plot(E_grid,cd_core_dos,'c',label='Cd (core)')
+plt.plot(E_grid,cd_shell_dos,'m',label='Cd (shell)')
+plt.plot(E_grid,se_dos,color='orange',label='Se')
+plt.plot(E_grid,s_dos,'y',label='S')
+plt.plot(E_grid,cd_core_dos+cd_shell_dos+se_dos+s_dos,'k',label='Total')
+plt.legend()
+plt.xlim(x_limit)
+plt.ylim(0,100)
+plt.ylabel('Density of States')
+plt.xlabel('Orbital Energy (eV)')
 # plt.show()
 
 '''
