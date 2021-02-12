@@ -36,7 +36,7 @@ print(qd_beg_filename)
 lig_atom = args.lig_atom # atom that attaches to the Cd in the ligand
 print('Ligand attach atom: ',lig_atom)
 header = header+ '   Ligand attach atom: '+lig_atom
-print(header)
+# print(header)
 
 save_surface = False
 
@@ -46,15 +46,15 @@ if args.cutoff:
     print('Cutoff: ',cutoff)
     nncutoff = 3  # number of nearest neighbors to be considered "unpassivated" (incl. ligands)
     uc_header = header+ '   UC cutoff: {} A'.format(cutoff)
-    print(uc_header)
+    # print(uc_header)
 if args.xtal:
     QD_file_start = args.xtal
     save_surface = True
     QD_xyz_start,atom_name_start = read_input_xyz(QD_file_start)
     surface_header = header+'   Crystal file: ' + QD_file_start
-    print(surface_header)
+    # print(surface_header)
 
-save_hist = args.dont_save
+save_hist = np.logical_not(args.dont_save)
 save_lig = args.save_ligand
 plot = args.plot
 

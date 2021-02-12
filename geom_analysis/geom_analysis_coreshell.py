@@ -71,7 +71,7 @@ def plot_underc_compare(Eex,sum_frac,sum_frac2,n_underc1,n_underc2,n_atomtot,n_a
 ### USER SPECIFIED INFO
 ###
 
-cutoff = 3.5 # nearest neighbor cutoff distance (lowest)
+cutoff = 3.2 # nearest neighbor cutoff distance (lowest)
 print('cutoff: ',cutoff)
 cutoff2 = 2.8 # nearest neighbor cutoff distance (highest)
 nncutoff = 3  # number of nearest neighbors to be considered "unpassivated" (incl. ligands)
@@ -80,8 +80,8 @@ lig_atom = "O" # atom that attaches to the Cd in the ligand
 QD_file_start=sys.argv[1] # QD crystal xyz file
 core_xyz=sys.argv[2]
 QD_file_end=sys.argv[3]   # QD optimized xyz file
-charges_input = sys.argv[4]
-spectrum = sys.argv[5]
+# charges_input = sys.argv[4]
+# spectrum = sys.argv[5]
 # savename=sys.argv[4]
 
 QD_xyz_start,atom_name_start = read_input_xyz(QD_file_start)
@@ -125,22 +125,22 @@ n_cdshell = float(np.count_nonzero(ind_shell_Cd))
 # #
 # ####
 #
-# # core only
-# nn_histogram(QD_xyz_start,ind_core_Cd,ind_Se,label1='crystal (core)',xyz2=QD_xyz_end,label2='optimized (core)')
-#
-# #shell only
-# nn_histogram(QD_xyz_start,ind_shell_Cd,ind_S,label1='crystal (shell)',xyz2=QD_xyz_end,label2='optimized (shell)')
-#
-# # core shell
-# nn_histogram(QD_xyz_start,ind_Cd,ind_chal,label1='crystal (core/shell)',xyz2=QD_xyz_end,label2='optimized (core/shell)')
-#
-# # cd (shell) to se (core)
-# nn_histogram(QD_xyz_start,ind_shell_Cd,ind_Se,label1='crystal (se core-cd shell)',xyz2=QD_xyz_end,label2='optimized (core/shell)')
-#
-# #cd (core) to s (shell)
-# nn_histogram(QD_xyz_start,ind_core_Cd,ind_S,label1='crystal (cd core-s shell)',xyz2=QD_xyz_end,label2='optimized (core/shell)')
-#
-# plt.show()
+# core only
+nn_histogram(QD_xyz_start,ind_core_Cd,ind_Se,label1='crystal (core)',xyz2=QD_xyz_end,label2='optimized (core)')
+
+#shell only
+nn_histogram(QD_xyz_start,ind_shell_Cd,ind_S,label1='crystal (shell)',xyz2=QD_xyz_end,label2='optimized (shell)')
+
+# core shell
+nn_histogram(QD_xyz_start,ind_Cd,ind_chal,label1='crystal (core/shell)',xyz2=QD_xyz_end,label2='optimized (core/shell)')
+
+# cd (shell) to se (core)
+nn_histogram(QD_xyz_start,ind_shell_Cd,ind_Se,label1='crystal (se core-cd shell)',xyz2=QD_xyz_end,label2='optimized (core/shell)')
+
+#cd (core) to s (shell)
+nn_histogram(QD_xyz_start,ind_core_Cd,ind_S,label1='crystal (cd core-s shell)',xyz2=QD_xyz_end,label2='optimized (core/shell)')
+
+plt.show()
 
 # np.savetxt('hist.csv',cdse_dists.flatten())
 
@@ -156,8 +156,8 @@ dist_list = get_dists_cs(QD_xyz_end,ind_core_Cd,ind_Se,ind_shell_Cd,ind_S)
 cdcore_underc_ind,secore_underc_ind,cdcore_wshell_underc_ind,secore_wshell_underc_ind,cdshell_underc_ind,sshell_underc_ind=get_underc_index_cs(ind_core_Cd,ind_Se,ind_shell_Cd,ind_S,cutoff,nncutoff,dist_list)
 
 
-np.save('cdshell_underc_ind_3',get_underc_ind_large(ind_shell_Cd,cdshell_underc_ind) )
-np.save('sshell_underc_ind_3',get_underc_ind_large(ind_S,sshell_underc_ind))
+# np.save('cdshell_underc_ind_3',get_underc_ind_large(ind_shell_Cd,cdshell_underc_ind) )
+# np.save('sshell_underc_ind_3',get_underc_ind_large(ind_S,sshell_underc_ind))
 
 n_underc_cdcore_co = float(np.count_nonzero(cdcore_underc_ind))
 n_underc_secore_co = float(np.count_nonzero(secore_underc_ind))
