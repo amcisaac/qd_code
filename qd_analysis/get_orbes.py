@@ -1,5 +1,5 @@
 import argparse
-import numpy
+import numpy as np
 
 # script to extract orbital energies
 # usage: python3 get_orbes [name of TDDFT output file] > [CSV file]
