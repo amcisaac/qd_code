@@ -1,5 +1,4 @@
 import argparse
-import numpy as np
 
 # script to extract orbital energies
 # usage: python3 get_orbes [name of TDDFT output file] > [CSV file]
@@ -15,7 +14,8 @@ args=my_parser.parse_args()
 # inputfile=sys.argv[1]  # output of TDDFT calculation
 
 write_lines=[]
-orbe_file_name = '.'.join(args.inputfile.split('.'))[0:-1]+'_orbes.txt'
+orbe_file_name = '.'.join(args.inputfile.split('.')[0:-1])+'_orbes.txt'
+print(orbe_file_name)
 with open(args.inputfile,'r') as inp:
     flag=0  # flag indicates whether you're in the excitation energy part of the file
     flag2=0
@@ -45,10 +45,13 @@ with open(args.inputfile,'r') as inp:
         if flag3 ==1:
             if line.find('Alpha MOs') != -1:
                 # print file header when you get to the orbital E's part, change flag to 1
-                write_lines.append(['Orbital energy (au),Occupation   from '+args.inputfile])
+                write_lines.append(['Orbital energy (au), Occupation   from '+args.inputfile])
                 flag = 1
         if line.find('Optimization Cycle') != -1:
             if line.split()[-1] == args.opt_cycle:
                 flag3 = 1
-
-np.savetxt(orbe_file_name,np.array(write_lines))
+#print(write_lines)
+with open(orbe_file_name,'w') as outfile:
+    outfile.write(write_lines[0][0]+'\n')
+    for line in write_lines[1:]:
+        outfile.write('{:6}  {:10}\n'.format(line[0],line[1]))
