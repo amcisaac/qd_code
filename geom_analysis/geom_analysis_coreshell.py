@@ -71,7 +71,7 @@ def plot_underc_compare(Eex,sum_frac,sum_frac2,n_underc1,n_underc2,n_atomtot,n_a
 ### USER SPECIFIED INFO
 ###
 
-cutoff = 3.2 # nearest neighbor cutoff distance (lowest)
+cutoff = 3.1 # nearest neighbor cutoff distance (lowest)
 print('cutoff: ',cutoff)
 cutoff2 = 2.8 # nearest neighbor cutoff distance (highest)
 nncutoff = 3  # number of nearest neighbors to be considered "unpassivated" (incl. ligands)
@@ -126,21 +126,23 @@ n_cdshell = float(np.count_nonzero(ind_shell_Cd))
 # ####
 #
 # core only
-nn_histogram(QD_xyz_start,ind_core_Cd,ind_Se,label1='crystal (core)',xyz2=QD_xyz_end,label2='optimized (core)')
+# nn_histogram(QD_xyz_start,ind_core_Cd,ind_Se,label1='crystal (core)',xyz2=QD_xyz_end,label2='optimized (core)')
+#
+# #shell only
+# nn_histogram(QD_xyz_start,ind_shell_Cd,ind_S,label1='crystal (shell)',xyz2=QD_xyz_end,label2='optimized (shell)')
+#
+# # core shell
+# nn_histogram(QD_xyz_start,ind_Cd,ind_chal,label1='crystal (core/shell)',xyz2=QD_xyz_end,label2='optimized (core/shell)')
+#
+# # cd (shell) to se (core)
+# nn_histogram(QD_xyz_start,ind_shell_Cd,ind_Se,label1='crystal (se core-cd shell)',xyz2=QD_xyz_end,label2='optimized (core/shell)')
+#
+# #cd (core) to s (shell)
+# nn_histogram(QD_xyz_start,ind_core_Cd,ind_S,label1='crystal (cd core-s shell)',xyz2=QD_xyz_end,label2='optimized (core/shell)')
+#
+# nn_histogram(QD_xyz_start,ind_S,ind_S,label1='crystal (s-s distances)',xyz2=QD_xyz_end,label2='optimized (s-s)')
 
-#shell only
-nn_histogram(QD_xyz_start,ind_shell_Cd,ind_S,label1='crystal (shell)',xyz2=QD_xyz_end,label2='optimized (shell)')
-
-# core shell
-nn_histogram(QD_xyz_start,ind_Cd,ind_chal,label1='crystal (core/shell)',xyz2=QD_xyz_end,label2='optimized (core/shell)')
-
-# cd (shell) to se (core)
-nn_histogram(QD_xyz_start,ind_shell_Cd,ind_Se,label1='crystal (se core-cd shell)',xyz2=QD_xyz_end,label2='optimized (core/shell)')
-
-#cd (core) to s (shell)
-nn_histogram(QD_xyz_start,ind_core_Cd,ind_S,label1='crystal (cd core-s shell)',xyz2=QD_xyz_end,label2='optimized (core/shell)')
-
-plt.show()
+# plt.show()
 
 # np.savetxt('hist.csv',cdse_dists.flatten())
 
@@ -156,8 +158,8 @@ dist_list = get_dists_cs(QD_xyz_end,ind_core_Cd,ind_Se,ind_shell_Cd,ind_S)
 cdcore_underc_ind,secore_underc_ind,cdcore_wshell_underc_ind,secore_wshell_underc_ind,cdshell_underc_ind,sshell_underc_ind=get_underc_index_cs(ind_core_Cd,ind_Se,ind_shell_Cd,ind_S,cutoff,nncutoff,dist_list)
 
 
-# np.save('cdshell_underc_ind_3',get_underc_ind_large(ind_shell_Cd,cdshell_underc_ind) )
-# np.save('sshell_underc_ind_3',get_underc_ind_large(ind_S,sshell_underc_ind))
+np.save('cdshell_underc_ind_3p1',get_underc_ind_large(ind_shell_Cd,cdshell_underc_ind) )
+np.save('sshell_underc_ind_3p1',get_underc_ind_large(ind_S,sshell_underc_ind))
 
 n_underc_cdcore_co = float(np.count_nonzero(cdcore_underc_ind))
 n_underc_secore_co = float(np.count_nonzero(secore_underc_ind))
@@ -198,38 +200,38 @@ print('Undercoordinated S :',np.count_nonzero(sshell_underc_ind))
 ####
 
 # to change to pre/post opt, use a new dist_list with same cutoff
-cdcore_underc_ind2,secore_underc_ind2,cdcore_wshell_underc_ind2,secore_wshell_underc_ind2,cdshell_underc_ind2,sshell_underc_ind2=get_underc_index_cs(ind_core_Cd,ind_Se,ind_shell_Cd,ind_S,cutoff2,nncutoff,dist_list)
-
-cdcore_underc_ind_amb=np.logical_xor(cdcore_underc_ind,cdcore_underc_ind2)
-secore_underc_ind_amb=np.logical_xor(secore_underc_ind,secore_underc_ind2)
-cdcore_wshell_underc_ind_amb=np.logical_xor(cdcore_wshell_underc_ind,cdcore_wshell_underc_ind2)
-secore_wshell_underc_ind_amb=np.logical_xor(secore_wshell_underc_ind,secore_wshell_underc_ind2)
-cdshell_underc_ind_amb=np.logical_xor(cdshell_underc_ind,cdshell_underc_ind2)
-sshell_underc_ind_amb=np.logical_xor(sshell_underc_ind,sshell_underc_ind2)
-
-n_underc_cdcore_co_amb = float(np.count_nonzero(cdcore_underc_ind_amb))
-n_underc_secore_co_amb = float(np.count_nonzero(secore_underc_ind_amb))
-n_underc_cdshell_sc_amb = float(np.count_nonzero(cdshell_underc_ind_amb))
-n_underc_sshell_sc_amb = float(np.count_nonzero(sshell_underc_ind_amb))
-
-# np.save('cdshell_underc_ind_2p8',get_underc_ind_large(ind_shell_Cd,cdshell_underc_ind_amb))
-# np.save('sshell_underc_ind_2p8',get_underc_ind_large(ind_S,sshell_underc_ind_amb))
-
-print('')
-print('Cutoff between ',cutoff2, 'and ',cutoff)
-print('Optimized geometry, bare core:')
-print('Undercoordinated Cd:',np.count_nonzero(cdcore_underc_ind_amb))
-print('Undercoordinated Se:',np.count_nonzero(secore_underc_ind_amb))
-
-print('')
-print('Optimized geometry, core with shell:')
-print('Undercoordinated Cd:',np.count_nonzero(cdcore_wshell_underc_ind_amb))
-print('Undercoordinated Se:',np.count_nonzero(secore_wshell_underc_ind_amb))
-
-print('')
-print('Optimized geometry, shell with core:')
-print('Undercoordinated Cd:',np.count_nonzero(cdshell_underc_ind_amb))
-print('Undercoordinated S :',np.count_nonzero(sshell_underc_ind_amb))
+# cdcore_underc_ind2,secore_underc_ind2,cdcore_wshell_underc_ind2,secore_wshell_underc_ind2,cdshell_underc_ind2,sshell_underc_ind2=get_underc_index_cs(ind_core_Cd,ind_Se,ind_shell_Cd,ind_S,cutoff2,nncutoff,dist_list)
+#
+# cdcore_underc_ind_amb=np.logical_xor(cdcore_underc_ind,cdcore_underc_ind2)
+# secore_underc_ind_amb=np.logical_xor(secore_underc_ind,secore_underc_ind2)
+# cdcore_wshell_underc_ind_amb=np.logical_xor(cdcore_wshell_underc_ind,cdcore_wshell_underc_ind2)
+# secore_wshell_underc_ind_amb=np.logical_xor(secore_wshell_underc_ind,secore_wshell_underc_ind2)
+# cdshell_underc_ind_amb=np.logical_xor(cdshell_underc_ind,cdshell_underc_ind2)
+# sshell_underc_ind_amb=np.logical_xor(sshell_underc_ind,sshell_underc_ind2)
+#
+# n_underc_cdcore_co_amb = float(np.count_nonzero(cdcore_underc_ind_amb))
+# n_underc_secore_co_amb = float(np.count_nonzero(secore_underc_ind_amb))
+# n_underc_cdshell_sc_amb = float(np.count_nonzero(cdshell_underc_ind_amb))
+# n_underc_sshell_sc_amb = float(np.count_nonzero(sshell_underc_ind_amb))
+#
+# # np.save('cdshell_underc_ind_2p8',get_underc_ind_large(ind_shell_Cd,cdshell_underc_ind_amb))
+# # np.save('sshell_underc_ind_2p8',get_underc_ind_large(ind_S,sshell_underc_ind_amb))
+#
+# print('')
+# print('Cutoff between ',cutoff2, 'and ',cutoff)
+# print('Optimized geometry, bare core:')
+# print('Undercoordinated Cd:',np.count_nonzero(cdcore_underc_ind_amb))
+# print('Undercoordinated Se:',np.count_nonzero(secore_underc_ind_amb))
+#
+# print('')
+# print('Optimized geometry, core with shell:')
+# print('Undercoordinated Cd:',np.count_nonzero(cdcore_wshell_underc_ind_amb))
+# print('Undercoordinated Se:',np.count_nonzero(secore_wshell_underc_ind_amb))
+#
+# print('')
+# print('Optimized geometry, shell with core:')
+# print('Undercoordinated Cd:',np.count_nonzero(cdshell_underc_ind_amb))
+# print('Undercoordinated S :',np.count_nonzero(sshell_underc_ind_amb))
 
 
 ####

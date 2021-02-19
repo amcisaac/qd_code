@@ -1,5 +1,5 @@
-import matplotlib as mpl
-mpl.use('Agg')
+# import matplotlib as mpl
+# mpl.use('Agg')
 import numpy as np
 import numpy.linalg as npl
 import sys
@@ -49,6 +49,44 @@ def dos_grid(E_grid, sigma, E_orb, c):
         # print(c[i])
         dos_grid += (c[i]/np.sqrt(2*np.pi*sigma**2))*np.exp(-(E_grid-E_orb[i])**2/(2*sigma**2))
     return dos_grid
+
+def dos_grid_cdses(E_grid, sigma, E_orb, c_cd_core,c_cd_shell,c_se,c_s):
+    '''
+    Function to calculate the weighted DOS based on the orbital energies
+    and fraction of the orbital on the core/shell.
+
+    Inputs:
+        E_grid: energy grid to calculate the DOS over
+        sigma: broadening parameter for the gaussians
+        E_orb: array of all the orbital energies
+        c: array of the fraction of each orbital on the core (or shell) atoms
+
+    Returns:
+        dos_grid: the gaussian braodened DOS, weighted by c
+    '''
+    # dos_grid_in=np.zeros(E_grid.shape)
+    # dos_grid_ga=np.zeros(E_grid.shape)
+    # dos_grid_p=np.zeros(E_grid.shape)
+    # dos_grid_lig=np.zeros(E_grid.shape)
+
+    c_cd_core_rs = np.reshape(c_cd_core,(c_cd_core.shape[0],1))
+    c_cd_shell_rs = np.reshape(c_cd_shell,(c_cd_shell.shape[0],1))
+    c_se_rs = np.reshape(c_se,(c_se.shape[0],1))
+    c_s_rs = np.reshape(c_s,(c_s.shape[0],1))
+    # c_lig_rs = np.reshape(c_lig,(c_lig.shape[0],1))
+    # print(len(c_in))
+    E_grid_reshape=np.broadcast_to(E_grid,(len(E_orb),len(E_grid)))
+    E_orb_reshape=np.broadcast_to(E_orb,(len(E_grid),len(E_orb))).T
+    deltaE=E_grid_reshape-E_orb_reshape
+    deltaE2 = np.power(deltaE,2)
+    exp_eorb = np.exp(-(deltaE2)/(2*sigma**2))/np.sqrt(2*np.pi*sigma**2)
+
+    dos_grid_cd_core=np.sum(c_cd_core_rs*exp_eorb,axis=0)
+    dos_grid_cd_shell=np.sum(c_cd_shell_rs*exp_eorb,axis=0)
+    dos_grid_se=np.sum(c_se_rs*exp_eorb,axis=0)
+    dos_grid_s=np.sum(c_s_rs*exp_eorb,axis=0)
+
+    return dos_grid_cd_core,dos_grid_cd_shell,dos_grid_se,dos_grid_s
 
 def make_mo_coeff_mat(mo_file_raw,nbas):
     '''
@@ -208,9 +246,10 @@ if len(sys.argv)>7:
     underc=True
     cdshell_underc_ind=np.load(sys.argv[7])
     sshell_underc_ind=np.load(sys.argv[8])
-    cdshell_underc_ind_amb=np.load(sys.argv[9])
-    sshell_underc_ind_amb=np.load(sys.argv[10])
-
+    # cdshell_underc_ind_amb=np.load(sys.argv[9])
+    # sshell_underc_ind_amb=np.load(sys.argv[10])
+    cdshell_underc_ind_amb=np.full(cdshell_underc_ind.shape,False)
+    sshell_underc_ind_amb=np.full(sshell_underc_ind.shape,False)
 
 # read xyz files
 xyz,atoms=read_input_xyz(xyz_file)
@@ -279,16 +318,18 @@ print('Alphas add to 1?:',np.all(np.isclose(alpha_cd_core+alpha_cd_shell+alpha_s
 calculate projected DOS
 '''
 mo_e = mo_e * 27.2114 # MO energy, in eV
-E_grid = np.arange(1.5*mo_e[0],.5*mo_e[-1],0.001) # energy grid to evaluate the DOS over
+E_grid = np.arange(-500,50,0.01) # energy grid to evaluate the DOS over
 sigma=0.1 # broadening parameter
 
-se_dos=dos_grid(E_grid,sigma,mo_e,alpha_se)
-s_dos=dos_grid(E_grid,sigma,mo_e,alpha_s)
-cd_core_dos = dos_grid(E_grid,sigma,mo_e,alpha_cd_core)
-cd_shell_dos = dos_grid(E_grid,sigma,mo_e,alpha_cd_shell)
+# se_dos=dos_grid(E_grid,sigma,mo_e,alpha_se)
+# s_dos=dos_grid(E_grid,sigma,mo_e,alpha_s)
+# cd_core_dos = dos_grid(E_grid,sigma,mo_e,alpha_cd_core)
+# cd_shell_dos = dos_grid(E_grid,sigma,mo_e,alpha_cd_shell)
+cd_core_dos,cd_shell_dos,se_dos,s_dos = dos_grid_cdses(E_grid, sigma, mo_e, alpha_cd_core,alpha_cd_shell,alpha_se,alpha_s)
 cd_dos = cd_core_dos + cd_shell_dos
 core_dos = se_dos + cd_core_dos
 shell_dos = cd_shell_dos + s_dos
+
 #
 #
 if underc:
@@ -303,15 +344,21 @@ if underc:
 
     print('Alphas add to 1?:',np.all(np.isclose(alpha_shell_fc+alpha_cd_uc+alpha_s_uc+alpha_core,1)))
 
-    cd_uc_dos = dos_grid(E_grid,sigma,mo_e,alpha_cd_uc)
-    s_uc_dos = dos_grid(E_grid,sigma,mo_e,alpha_s_uc)
-    shell_fc_dos = dos_grid(E_grid,sigma,mo_e,alpha_shell_fc)
+    # cd_uc_dos = dos_grid(E_grid,sigma,mo_e,alpha_cd_uc)
+    # s_uc_dos = dos_grid(E_grid,sigma,mo_e,alpha_s_uc)
+    # shell_fc_dos = dos_grid(E_grid,sigma,mo_e,alpha_shell_fc)
 
+    cd_uc_dos,s_uc_dos,cd_fc_dos,s_fc_dos = dos_grid_cdses(E_grid,sigma,mo_e,alpha_cd_uc,alpha_s_uc,alpha_cd_fc,alpha_s_fc)
+    shell_fc_dos = cd_fc_dos + s_fc_dos
+
+
+homo = nocc - 1
+print("Band gap:", mo_e[homo]-mo_e[homo+1])
 x_limit = (mo_e[homo]-3,mo_e[homo+1]+3)
 '''
 plotting PDOS--core/shell
 '''
-plot PDOS
+# plot PDOS
 plt.figure()
 plt.plot(E_grid,core_dos,'b',label='Core')
 plt.plot(E_grid,shell_dos,'r',label='Shell')
@@ -358,16 +405,16 @@ plt.xlabel('Orbital Energy (eV)')
 '''
 plotting PDOS--undercoordinated atoms
 '''
-# plt.figure()
-# plt.plot(E_grid,cd_uc_dos,color='cyan',label='2-c Cd')
-# plt.plot(E_grid,s_uc_dos,color='gold',label='2-c S')
-# plt.plot(E_grid,shell_fc_dos,color='r',label='3/4-c shell')
-# # plt.plot(E_grid,s_fc_dos,'b',label='3/4-c S')
-# plt.plot(E_grid,core_dos,'b',label='Core')
-# plt.plot(E_grid,cd_uc_dos+s_uc_dos+shell_fc_dos+core_dos,'k',label='Total')
-# plt.legend()
-# plt.xlim(-8,-2)
-# plt.ylim(0,100)
-# plt.ylabel('Density of States')
-# plt.xlabel('Orbital Energy (eV)')
-# plt.show()
+plt.figure()
+plt.plot(E_grid,cd_uc_dos,color='cyan',label='2-c Cd')
+plt.plot(E_grid,s_uc_dos,color='gold',label='2-c S')
+plt.plot(E_grid,shell_fc_dos,color='r',label='3/4-c shell')
+# plt.plot(E_grid,s_fc_dos,'b',label='3/4-c S')
+plt.plot(E_grid,core_dos,'b',label='Core')
+plt.plot(E_grid,cd_uc_dos+s_uc_dos+shell_fc_dos+core_dos,'k',label='Total')
+plt.legend()
+plt.xlim(x_limit)
+plt.ylim(0,100)
+plt.ylabel('Density of States')
+plt.xlabel('Orbital Energy (eV)')
+plt.show()

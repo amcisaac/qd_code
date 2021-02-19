@@ -123,6 +123,11 @@ def get_dists(QD_xyz,ind_Cd,ind_Se,ind_attach=False,ind_shell_cd=False,ind_shell
     else:
         return all_dists,cd_se_dists_all,[],cd_se_dists_all,se_cd_dists_all
 
+def get_dists_bonded(all_dists,ind_Cd,ind_Se):
+    cdcd_dist=dist_atom12(all_dists,ind_Cd,ind_Cd)
+    sese_dist=dist_atom12(all_dists,ind_Se,ind_Se)
+    return cdcd_dist,sese_dist
+
 def num_nn(dist_list,cutoff):
     '''
     Function that calculates the number of nearest neighbors that each atom has,
