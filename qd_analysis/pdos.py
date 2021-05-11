@@ -5,229 +5,8 @@ import numpy.linalg as npl
 import sys
 from qd_helper import read_input_xyz,write_xyz
 from matplotlib import pyplot as plt
-
-
-
-def transformation(S):
-    '''
-    Find the transformation vector, X, that orthogonalizes the basis set
-    Uses symmetric orthogonalization, as described in Szabo and Ostlund p 143
-
-    Inputs:
-        S = overlap matrix
-    Returns:
-        X = transformation matrix (S^-.5)
-        X_dagger = conjugate transpose of X
-    '''
-    S_eval, S_evec = npl.eigh(S)                     # extract eigenvalues and eigenvectors from overlap matrix
-    # print(S_eval)
-    s_sqrt = np.diag(np.power(S_eval,-0.5))    # initialize s^-0.5, the diagonalized overlap matrix to the -1/2 power
-
-
-    U = S_evec                                   # find the unitary transform matrix
-    U_dagger = np.transpose(U)                        # find the conjugate transpose of the unitary matrix
-    X = np.dot(U, np.dot(s_sqrt, U_dagger))      # form X = S^-0.5, the transform matrix to orthogonalize the basis set
-    X_dagger = np.transpose(X)                   # conjugate transpose is just transpose since all values are real
-    return X, X_dagger
-
-def dos_grid(E_grid, sigma, E_orb, c):
-    '''
-    Function to calculate the weighted DOS based on the orbital energies
-    and fraction of the orbital on the core/shell.
-
-    Inputs:
-        E_grid: energy grid to calculate the DOS over
-        sigma: broadening parameter for the gaussians
-        E_orb: array of all the orbital energies
-        c: array of the fraction of each orbital on the core (or shell) atoms
-
-    Returns:
-        dos_grid: the gaussian braodened DOS, weighted by c
-    '''
-    dos_grid=np.zeros(E_grid.shape)
-    for i in range(0,len(c)):
-        # print(c[i])
-        dos_grid += (c[i]/np.sqrt(2*np.pi*sigma**2))*np.exp(-(E_grid-E_orb[i])**2/(2*sigma**2))
-    return dos_grid
-
-def dos_grid_cdses(E_grid, sigma, E_orb, c_cd_core,c_cd_shell,c_se,c_s):
-    '''
-    Function to calculate the weighted DOS based on the orbital energies
-    and fraction of the orbital on the core/shell.
-
-    Inputs:
-        E_grid: energy grid to calculate the DOS over
-        sigma: broadening parameter for the gaussians
-        E_orb: array of all the orbital energies
-        c: array of the fraction of each orbital on the core (or shell) atoms
-
-    Returns:
-        dos_grid: the gaussian braodened DOS, weighted by c
-    '''
-    # dos_grid_in=np.zeros(E_grid.shape)
-    # dos_grid_ga=np.zeros(E_grid.shape)
-    # dos_grid_p=np.zeros(E_grid.shape)
-    # dos_grid_lig=np.zeros(E_grid.shape)
-
-    c_cd_core_rs = np.reshape(c_cd_core,(c_cd_core.shape[0],1))
-    c_cd_shell_rs = np.reshape(c_cd_shell,(c_cd_shell.shape[0],1))
-    c_se_rs = np.reshape(c_se,(c_se.shape[0],1))
-    c_s_rs = np.reshape(c_s,(c_s.shape[0],1))
-    # c_lig_rs = np.reshape(c_lig,(c_lig.shape[0],1))
-    # print(len(c_in))
-    E_grid_reshape=np.broadcast_to(E_grid,(len(E_orb),len(E_grid)))
-    E_orb_reshape=np.broadcast_to(E_orb,(len(E_grid),len(E_orb))).T
-    deltaE=E_grid_reshape-E_orb_reshape
-    deltaE2 = np.power(deltaE,2)
-    exp_eorb = np.exp(-(deltaE2)/(2*sigma**2))/np.sqrt(2*np.pi*sigma**2)
-
-    dos_grid_cd_core=np.sum(c_cd_core_rs*exp_eorb,axis=0)
-    dos_grid_cd_shell=np.sum(c_cd_shell_rs*exp_eorb,axis=0)
-    dos_grid_se=np.sum(c_se_rs*exp_eorb,axis=0)
-    dos_grid_s=np.sum(c_s_rs*exp_eorb,axis=0)
-
-    return dos_grid_cd_core,dos_grid_cd_shell,dos_grid_se,dos_grid_s
-
-def make_mo_coeff_mat(mo_file_raw,nbas):
-    '''
-    Function to build the MO coefficient matrix from a QChem file
-
-    Inputs:
-        mo_file_raw: MO coefficient file from QChem (53.0), with each line having a new coefficient.
-        nbas: number of basis functions
-
-    Returns:
-        mo_coeff_mat: MO coefficient matrix with MO's as columns and AO's as rows
-                      (same order as atoms in xyz). Nbas x Nbas
-        mo_Es: array of MO energies
-    '''
-    mo_coeff_mat = np.zeros((nbas,nbas))
-    mo_Es = np.zeros(nbas)
-    with open(mo_file_raw,'r') as mo_file:
-        mo_lines=mo_file.readlines()
-        for i in range(0,nbas): # row
-            e_ind = 2 * nbas * nbas + i
-            mo_Es[i] = float(mo_lines[e_ind]) # energy
-            for j in range(0,nbas): # column
-                mo_ind = i * nbas + j
-                mo_coeff_mat[j,i] = float(mo_lines[mo_ind]) # coeff
-    return mo_coeff_mat,mo_Es
-
-def make_s_matrix(s_file_raw,nbas):
-    s_mat = np.zeros((nbas,nbas))
-    with open(s_file_raw,'r') as s_file:
-        s_lines=s_file.readlines()
-        for i in range(0,nbas):
-            for j in range(0,nbas):
-                s_ind = i*nbas+j
-                s_mat[j,i]=float(s_lines[s_ind])
-
-    return s_mat
-
-def get_mul_low(P,S,X_inv,atoms,orb_per_atom,z):
-    PS = P@S
-    mul_perorb=np.diag(PS)
-    SPS = X_inv@P@X_inv
-    low_perorb=np.diag(SPS)
-
-    mul=[]
-    low=[]
-    j = 0
-    for atom in atoms:
-        nbas_i = orb_per_atom[atom]
-        mul_AO = mul_perorb[j:j+nbas_i]
-        low_AO = low_perorb[j:j+nbas_i]
-
-        mul.append(np.sum(mul_AO,axis=0))
-        low.append(np.sum(low_AO,axis=0))
-        j += nbas_i
-
-    mul_charge=z-np.array(mul)
-    low_charge=z-np.array(low)
-    return mul_charge,low_charge
-
-def make_P_from_MO(mo_mat_unnorm,nocc):
-    P=2*mo_mat_unnorm[:,0:nocc]@mo_mat_unnorm[:,0:nocc].T # reproduces qchem
-    return P
-
-def get_z(atoms):
-    z_dict = {'Cd':48-36,'Se':34-28,'S':16-10,'H':1,'C':6,'He':2}
-    z = np.zeros(len(atoms))
-    for i,atom in enumerate(atoms):
-        z[i]=z_dict[atom]
-    return z
-
-
-def get_mo_partition(mo_mat,ao_inds):
-    mo_mat_list = []
-    for ind in ao_inds:
-        mo_mat_list.append(mo_mat[ind])
-
-    return mo_mat_list
-
-def get_alpha(mo_mat,ao_inds):
-    mo_mats=get_mo_partition(mo_mat,ao_inds)
-    alpha_list = []
-    for mo_mat in mo_mats:
-        alpha_x = np.sum(np.power(mo_mat,2),axis=0)
-        alpha_list.append(alpha_x)
-
-    return alpha_list
-
-def get_cs_ind_ao_underc(atoms,core_ind,nbas,orb_per_atom):
-    # get core/shell indices, and AO indices
-    cdshell_underc_ind_ao=np.full(nbas,False)
-    sshell_underc_ind_ao=np.full(nbas,False)
-    cdshell_underc_ind_amb_ao=np.full(nbas,False)
-    sshell_underc_ind_amb_ao=np.full(nbas,False)
-
-    j=0
-    n_ao = 0
-    for i,atom in enumerate(atoms):
-        # print(i)
-        j += n_ao
-        atom = atoms[i]
-        n_ao = orb_per_atom[atom]
-
-        if not core_ind[i]:
-            if cdshell_underc_ind[i]==True: cdshell_underc_ind_ao[j:j+n_ao]=True
-            if sshell_underc_ind[i]==True: sshell_underc_ind_ao[j:j+n_ao]=True
-            if cdshell_underc_ind_amb[i]==True: cdshell_underc_ind_amb_ao[j:j+n_ao]=True
-            if sshell_underc_ind_amb[i]==True: sshell_underc_ind_amb_ao[j:j+n_ao]=True
-
-    return cdshell_underc_ind_ao,sshell_underc_ind_ao,cdshell_underc_ind_amb_ao,sshell_underc_ind_amb_ao
-
-def get_cs_ind_ao(full_xyz,core_xyz,atoms,nbas,orb_per_atom):
-    ind_Cd = (atoms == 'Cd')
-    ind_Se = (atoms == 'Se')
-    ind_S = (atoms=='S')
-    # get core/shell indices, and AO indices
-    ind_core=np.full(atoms.shape,False)
-    ind_core_ao = np.full(nbas,False)
-    ind_cd_ao = np.full(nbas,False)
-    ind_se_ao = np.full(nbas,False)
-    ind_s_ao = np.full(nbas,False)
-
-    j=0
-    n_ao = 0
-    for i,coord in enumerate(full_xyz):
-        # print(i)
-        j += n_ao
-        atom = atoms[i]
-        n_ao = orb_per_atom[atom]
-        if atom == 'Cd': ind_cd_ao[j:j+n_ao]=True
-        if atom == 'Se': ind_se_ao[j:j+n_ao]=True
-        if atom == 'S': ind_s_ao[j:j+n_ao]=True
-
-        for coord2 in core_xyz:
-            if np.all(coord2==coord):
-                ind_core[i]=True
-                ind_core_ao[j:j+n_ao]=True
-
-    ind_shell = np.logical_not(ind_core)
-    ind_shell_ao = np.logical_not(ind_core_ao)
-
-    return ind_Cd,ind_Se,ind_S,ind_core,ind_shell,ind_cd_ao,ind_se_ao,ind_s_ao,ind_core_ao,ind_shell_ao
+from pdos_helper import *
+import time
 
 
 '''
@@ -241,6 +20,19 @@ coeff_file = sys.argv[5]    # hex version of qchem 53.0
 s_file=sys.argv[6]          # hex version of qchem 320.0
 charge_analysis=False       # make True for mulliken/lowdin analysis (just standard atomic charge)
 underc=False
+attach_atom=False
+attach_atom2=False
+attach_atom='H'
+# attach_atom2='Cl'
+clash=False
+lig_fall = False
+
+
+# read xyz files
+xyz,atoms=read_input_xyz(xyz_file)
+core_xyz,core_atoms=read_input_xyz(core_xyz_file)
+cdshell_underc_ind_amb=np.full(atoms.shape,False)
+sshell_underc_ind_amb=np.full(atoms.shape,False)
 
 if len(sys.argv)>7:
     underc=True
@@ -251,49 +43,46 @@ if len(sys.argv)>7:
     cdshell_underc_ind_amb=np.full(cdshell_underc_ind.shape,False)
     sshell_underc_ind_amb=np.full(sshell_underc_ind.shape,False)
 
-# read xyz files
-xyz,atoms=read_input_xyz(xyz_file)
-core_xyz,core_atoms=read_input_xyz(core_xyz_file)
+if len(sys.argv)>9:
+    clash=True
+    cdshell_clash_ind = np.load(sys.argv[9])
+    sshell_clash_ind = np.load(sys.argv[10])
+
+if len(sys.argv)>11:
+    lig_fall = True
+    lig_fall_ind = np.load(sys.argv[11])
+
+
 
 # number of orbitals per atom for each atom: 8 Se, 8 S, 18 Cd
-orb_per_atom_lanl2dz = {'Cd': 18, 'Se': 8, 'S': 8}
+orb_per_atom_lanl2dz = {'Cd': 18, 'Se': 8, 'S': 8, 'N':9,'C':9,'H':2,'Cl':8}
 # orb_per_atom_sto3g={'C':5,'H':1,'He':1} # for testing purposes
 # orb_per_atom_ccpvdz={'C':14,'H':5,'He':5} # for testing purposes
 orb_per_atom=orb_per_atom_lanl2dz
 
-'''
-building matrices
-'''
-S = make_s_matrix(s_file,nbas)  # 320.0
-print('Done building S')
+# reading in matrices
+if coeff_file.split('.')[-1]=='npz':
+    # S = np.load(s_file)
+    coeff_file_expand=np.load(coeff_file)
+    mo_mat=coeff_file_expand['arr_0'] # normalized
+    mo_e = coeff_file_expand['arr_1']
 
-mo_mat_unnorm,mo_e = make_mo_coeff_mat(coeff_file,nbas) # 53.0
-print('Done building C')
+else:
+    mo_mat,mo_e,S=build_S_mo(s_file,coeff_file,nbas,nocc)
 
-X,X_dagger=transformation(S)
-X_inv = np.linalg.inv(X)
-print('Done building X')
+    np.savez('53.npz',mo_mat,mo_e)
+    np.save('320.npy',S)
+    raise NameError('Saved 53.txt and 320.txt files as .npz and .npy. Rerun with these .npy files')
 
-P=make_P_from_MO(mo_mat_unnorm,nocc) # to read in, use file 54.0
-print('Done building P')
-
-mo_mat= X_inv@mo_mat_unnorm
-print('Done with MO normalization')
-
+# check for normalization
 mo_mat_sum=np.sum(np.power(mo_mat,2),axis=0)
 print('MO normalization:',np.all(np.isclose(mo_mat_sum,1)))
 if not np.all(np.isclose(mo_mat_sum,1)): print("WARNING: MO's not normalized!")
 
-if charge_analysis:
-    mulliken,lowdin=get_mul_low(P,S,X_inv,atoms,orb_per_atom,z)
-    print('Mulliken charges for ',atoms,':',mulliken)
-    print('Lowdin charges for ',atoms,':',lowdin)
-
-
 '''
 get indices for different partitions
 '''
-ind_Cd,ind_Se,ind_S,ind_core,ind_shell,ind_cd_ao,ind_se_ao,ind_s_ao,ind_core_ao,ind_shell_ao = get_cs_ind_ao(xyz,core_xyz,atoms,nbas,orb_per_atom)
+ind_Cd,ind_Se,ind_S,ind_core,ind_shell,ind_lig,ind_cd_ao,ind_se_ao,ind_s_ao,ind_core_ao,ind_shell_ao,ind_lig_ao = get_cs_ind_ao(xyz,core_xyz,atoms,nbas,orb_per_atom,attach_atom)
 
 ind_cd_core = np.logical_and(ind_core,ind_Cd)
 ind_cd_shell = np.logical_and(ind_shell,ind_Cd)
@@ -301,17 +90,28 @@ ind_cd_core_ao = np.logical_and(ind_core_ao,ind_cd_ao)
 ind_cd_shell_ao = np.logical_and(ind_shell_ao,ind_cd_ao)
 
 if underc:
-    cdshell_underc_ind_ao,sshell_underc_ind_ao,cdshell_underc_ind_amb_ao,sshell_underc_ind_amb_ao = get_cs_ind_ao_underc(atoms,ind_core,nbas,orb_per_atom)
+    cdshell_underc_ind_ao,sshell_underc_ind_ao,cdshell_underc_ind_amb_ao,sshell_underc_ind_amb_ao = get_cs_ind_ao_underc(atoms,ind_core,nbas,orb_per_atom,cdshell_underc_ind,sshell_underc_ind,cdshell_underc_ind_amb,sshell_underc_ind_amb)
 
+if clash:
+    cdshell_clash_ind_ao,sshell_clash_ind_ao,x,y = get_cs_ind_ao_underc(atoms,ind_core,nbas,orb_per_atom,cdshell_clash_ind,sshell_clash_ind,cdshell_underc_ind_amb,sshell_underc_ind_amb)
+
+if lig_fall:
+    lig_fall_ind_ao,x,y,z = get_cs_ind_ao_underc(atoms,ind_core,nbas,orb_per_atom,lig_fall_ind,cdshell_underc_ind_amb,cdshell_underc_ind_amb,sshell_underc_ind_amb)
+
+if attach_atom2:
+    lig2_ind = (atoms==attach_atom2)
+    lig1_ind = (atoms==attach_atom)
+    lig2_ind_ao,x,y,z = get_cs_ind_ao_underc(atoms,ind_core,nbas,orb_per_atom,lig2_ind,cdshell_underc_ind_amb,cdshell_underc_ind_amb,sshell_underc_ind_amb)
+    lig1_ind_ao = np.logical_xor(ind_lig_ao,lig2_ind_ao)
 
 '''
 get squared coefficients on core,shell
 '''
-alpha_cd_core,alpha_cd_shell,alpha_se,alpha_s = get_alpha(mo_mat,[ind_cd_core_ao,ind_cd_shell_ao,ind_se_ao,ind_s_ao])
+alpha_cd_core,alpha_cd_shell,alpha_se,alpha_s,alpha_lig = get_alpha(mo_mat,[ind_cd_core_ao,ind_cd_shell_ao,ind_se_ao,ind_s_ao,ind_lig_ao])
 alpha_cd = alpha_cd_core + alpha_cd_shell
 alpha_core = alpha_cd_core + alpha_se
 alpha_shell = alpha_cd_shell + alpha_s
-print('Alphas add to 1?:',np.all(np.isclose(alpha_cd_core+alpha_cd_shell+alpha_se+alpha_s,1)))
+print('Alphas add to 1?:',np.all(np.isclose(alpha_cd_core+alpha_cd_shell+alpha_se+alpha_s+alpha_lig,1)))
 
 
 '''
@@ -321,11 +121,9 @@ mo_e = mo_e * 27.2114 # MO energy, in eV
 E_grid = np.arange(-500,50,0.01) # energy grid to evaluate the DOS over
 sigma=0.1 # broadening parameter
 
-# se_dos=dos_grid(E_grid,sigma,mo_e,alpha_se)
-# s_dos=dos_grid(E_grid,sigma,mo_e,alpha_s)
-# cd_core_dos = dos_grid(E_grid,sigma,mo_e,alpha_cd_core)
-# cd_shell_dos = dos_grid(E_grid,sigma,mo_e,alpha_cd_shell)
-cd_core_dos,cd_shell_dos,se_dos,s_dos = dos_grid_cdses(E_grid, sigma, mo_e, alpha_cd_core,alpha_cd_shell,alpha_se,alpha_s)
+
+cd_core_dos,cd_shell_dos,se_dos,s_dos,lig_dos = dos_grid_general(E_grid, sigma, mo_e, [alpha_cd_core,alpha_cd_shell,alpha_se,alpha_s,alpha_lig])
+
 cd_dos = cd_core_dos + cd_shell_dos
 core_dos = se_dos + cd_core_dos
 shell_dos = cd_shell_dos + s_dos
@@ -342,79 +140,180 @@ if underc:
     alpha_cd_uc,alpha_s_uc,alpha_cd_fc,alpha_s_fc = get_alpha(mo_mat,[cdshell_underc,sshell_underc,cdshell_nouc,sshell_nouc])
     alpha_shell_fc=alpha_cd_fc+alpha_s_fc
 
-    print('Alphas add to 1?:',np.all(np.isclose(alpha_shell_fc+alpha_cd_uc+alpha_s_uc+alpha_core,1)))
+    print('Alphas add to 1?:',np.all(np.isclose(alpha_shell_fc+alpha_cd_uc+alpha_s_uc+alpha_core+alpha_lig,1)))
 
     # cd_uc_dos = dos_grid(E_grid,sigma,mo_e,alpha_cd_uc)
     # s_uc_dos = dos_grid(E_grid,sigma,mo_e,alpha_s_uc)
     # shell_fc_dos = dos_grid(E_grid,sigma,mo_e,alpha_shell_fc)
 
-    cd_uc_dos,s_uc_dos,cd_fc_dos,s_fc_dos = dos_grid_cdses(E_grid,sigma,mo_e,alpha_cd_uc,alpha_s_uc,alpha_cd_fc,alpha_s_fc)
+    cd_uc_dos,s_uc_dos,cd_fc_dos,s_fc_dos,lig_dos_2 = dos_grid_cdses(E_grid,sigma,mo_e,alpha_cd_uc,alpha_s_uc,alpha_cd_fc,alpha_s_fc,alpha_lig)
     shell_fc_dos = cd_fc_dos + s_fc_dos
+    # print(np.all(lig_dos==lig_dos_2))
 
+if clash:
+    # sshell_underc = sshell_underc_ind_ao #np.logical_or(sshell_underc_ind_ao,sshell_underc_ind_amb_ao)
+    # cdshell_underc = cdshell_underc_ind_ao #np.logical_or(cdshell_underc_ind_ao,cdshell_underc_ind_amb_ao)
+
+    sshell_noclash = np.logical_xor(sshell_clash_ind_ao,ind_s_ao)
+    cdshell_noclash = np.logical_xor(cdshell_clash_ind_ao,ind_cd_shell_ao)
+
+    alpha_cd_clash,alpha_s_clash,alpha_cd_noclash,alpha_s_noclash = get_alpha(mo_mat,[cdshell_clash_ind_ao,sshell_clash_ind_ao,cdshell_noclash,sshell_noclash])
+    alpha_shell_noclash=alpha_cd_noclash+alpha_s_noclash
+
+    print('Alphas add to 1?:',np.all(np.isclose(alpha_shell_noclash+alpha_cd_clash+alpha_s_clash+alpha_core+alpha_lig,1)))
+
+    # cd_uc_dos = dos_grid(E_grid,sigma,mo_e,alpha_cd_uc)
+    # s_uc_dos = dos_grid(E_grid,sigma,mo_e,alpha_s_uc)
+    # shell_fc_dos = dos_grid(E_grid,sigma,mo_e,alpha_shell_fc)
+
+    cd_clash_dos,s_clash_dos,cd_noclash_dos,s_noclash_dos,lig_dos_2 = dos_grid_cdses(E_grid,sigma,mo_e,alpha_cd_clash,alpha_s_clash,alpha_cd_noclash,alpha_s_noclash,alpha_lig)
+    shell_noclash_dos = cd_noclash_dos + s_noclash_dos
+
+if lig_fall:
+    # sshell_underc = sshell_underc_ind_ao #np.logical_or(sshell_underc_ind_ao,sshell_underc_ind_amb_ao)
+    # cdshell_underc = cdshell_underc_ind_ao #np.logical_or(cdshell_underc_ind_ao,cdshell_underc_ind_amb_ao)
+
+    ligand_regular_ind_ao = np.logical_xor(lig_fall_ind_ao,ind_lig_ao)
+    # cdshell_noclash = np.logical_xor(cdshell_clash_ind_ao,ind_cd_shell_ao)
+
+    alpha_lig_fall,alpha_lig_regular = get_alpha(mo_mat,[lig_fall_ind_ao,ligand_regular_ind_ao])
+
+    print('Alphas add to 1?:',np.all(np.isclose(alpha_lig_fall+alpha_lig_regular+alpha_shell+alpha_core,1)))
+
+    # cd_uc_dos = dos_grid(E_grid,sigma,mo_e,alpha_cd_uc)
+    # s_uc_dos = dos_grid(E_grid,sigma,mo_e,alpha_s_uc)
+    # shell_fc_dos = dos_grid(E_grid,sigma,mo_e,alpha_shell_fc)
+
+    lig_fall_dos,lig_regular_dos,cd_noclash_dos,s_noclash_dos,lig_dos_2 = dos_grid_cdses(E_grid,sigma,mo_e,alpha_lig_fall,alpha_lig_regular,alpha_cd_noclash,alpha_s_noclash,alpha_lig)
+
+if attach_atom2:
+    alpha_lig1,alpha_lig2=get_alpha(mo_mat,[lig1_ind_ao,lig2_ind_ao])
+    print('Alphas add to 1?:',np.all(np.isclose(alpha_lig1+alpha_lig2+alpha_shell+alpha_core,1)))
+    lig1_dos,lig2_dos,x,y,z = dos_grid_cdses(E_grid,sigma,mo_e,alpha_lig1,alpha_lig2,alpha_cd,alpha_s,alpha_lig)
 
 homo = nocc - 1
 print("Band gap:", mo_e[homo]-mo_e[homo+1])
+print("HOMO energy:",mo_e[homo])
 x_limit = (mo_e[homo]-3,mo_e[homo+1]+3)
-'''
-plotting PDOS--core/shell
-'''
-# plot PDOS
-plt.figure()
-plt.plot(E_grid,core_dos,'b',label='Core')
-plt.plot(E_grid,shell_dos,'r',label='Shell')
-plt.plot(E_grid,core_dos+shell_dos,'k',label='Total')
-plt.legend()
-plt.xlim(x_limit)
-plt.ylim(0,100)
-plt.ylabel('Density of States')
-plt.xlabel('Orbital Energy (eV)')
-# plt.show()
-
-
-'''
-plotting PDOS--cd, s, se
-'''
+# '''
+# plotting PDOS--core/shell
+# '''
+# # plot PDOS
 # plt.figure()
-# plt.plot(E_grid,cd_dos,'c',label='Cd')
-# plt.plot(E_grid,se_dos,color='orange',label='Se')
-# plt.plot(E_grid,s_dos,'y',label='S')
-# plt.plot(E_grid,cd_dos+se_dos+s_dos,'k',label='Total')
+# plt.plot(E_grid,core_dos,'b',label='Core')
+# plt.plot(E_grid,shell_dos,'r',label='Shell')
+# if attach_atom2:
+#     plt.plot(E_grid,lig1_dos,'g',label=attach_atom)
+#     plt.plot(E_grid,lig2_dos,color='lime',label=attach_atom2)
+# elif attach_atom:
+#     plt.plot(E_grid, lig_dos,'g',label='ligand')
+#
+# plt.plot(E_grid,core_dos+shell_dos+lig_dos,'k',label='Total')
+# # plt.stem(mo_e[homo-9:homo+1],[1,1,1,1,1,1,1,1,1,1])
 # plt.legend()
-# plt.xlim(-8,-2)
+# plt.xlim(x_limit)
 # plt.ylim(0,100)
 # plt.ylabel('Density of States')
 # plt.xlabel('Orbital Energy (eV)')
+# plt.savefig('pdos_cs.pdf')
+# # plt.show()
+#
+#
+# '''
+# plotting PDOS--cd, s, se
+# '''
+# # plt.figure()
+# # plt.plot(E_grid,cd_dos,'c',label='Cd')
+# # plt.plot(E_grid,se_dos,color='orange',label='Se')
+# # plt.plot(E_grid,s_dos,'y',label='S')
+# # plt.plot(E_grid,cd_dos+se_dos+s_dos,'k',label='Total')
+# # plt.legend()
+# # plt.xlim(-8,-2)
+# # plt.ylim(0,100)
+# # plt.ylabel('Density of States')
+# # plt.xlabel('Orbital Energy (eV)')
+# # plt.savefig('pdos_atom_reduced.pdf')
+# # plt.show()
+#
+# '''
+# plotting PDOS--core cd, shell cd, s, se
+# '''
+# plt.figure()
+# plt.plot(E_grid,cd_core_dos,'c',label='Cd (core)')
+# plt.plot(E_grid,cd_shell_dos,'m',label='Cd (shell)')
+# plt.plot(E_grid,se_dos,color='orange',label='Se')
+# plt.plot(E_grid,s_dos,color='gold',label='S')
+# if attach_atom2:
+#     plt.plot(E_grid,lig1_dos,'g',label=attach_atom)
+#     plt.plot(E_grid,lig2_dos,color='lime',label=attach_atom2)
+# elif attach_atom:
+#     plt.plot(E_grid, lig_dos,'g',label='ligand')
+# plt.plot(E_grid,cd_core_dos+cd_shell_dos+se_dos+s_dos+lig_dos,'k',label='Total')
+# plt.legend()
+# plt.xlim(x_limit)
+# plt.ylim(0,100)
+# plt.ylabel('Density of States')
+# plt.xlabel('Orbital Energy (eV)')
+# plt.savefig('pdos_atom.pdf')
+# # plt.show()
+#
+#
+# '''
+# plotting PDOS--undercoordinated atoms
+# '''
+# if underc:
+#     plt.figure()
+#     plt.plot(E_grid,shell_fc_dos,color='r',label='3/4-c shell')
+#     plt.plot(E_grid,core_dos,'b',label='Core')
+#     if attach_atom:
+#         plt.plot(E_grid, lig_dos,'g',label='ligand')
+#     # plt.plot(E_grid,s_fc_dos,'b',label='3/4-c S')
+#     plt.plot(E_grid,cd_uc_dos,color='cyan',label='2-c Cd')
+#     plt.plot(E_grid,s_uc_dos,color='gold',label='2-c S')
+#     plt.plot(E_grid,cd_uc_dos+s_uc_dos+shell_fc_dos+core_dos,'k',label='Total')
+#     plt.legend()
+#     plt.xlim(x_limit)
+#     plt.ylim(0,100)
+#     plt.ylabel('Density of States')
+#     plt.xlabel('Orbital Energy (eV)')
+#     plt.savefig('pdos_uc.pdf')
+#
+# '''
+# plotting pdos--clashing atoms
+# '''
+# if clash:
+#     plt.figure()
+#     plt.plot(E_grid,shell_noclash_dos,color='r',label='Shell (no clash)')
+#     # plt.plot(E_grid,s_fc_dos,'b',label='3/4-c S')
+#     plt.plot(E_grid,core_dos,'b',label='Core')
+#     if attach_atom:
+#         plt.plot(E_grid, lig_dos,'g',label='ligand')
+#     plt.plot(E_grid,cd_clash_dos,color='cyan',label='Cd-Cd clash')
+#     plt.plot(E_grid,s_clash_dos,color='gold',label='S-S clash')
+#     plt.plot(E_grid,cd_clash_dos+s_clash_dos+shell_noclash_dos+core_dos+lig_dos,'k',label='Total')
+#     plt.legend()
+#     plt.xlim(x_limit)
+#     plt.ylim(0,100)
+#     plt.ylabel('Density of States')
+#     plt.xlabel('Orbital Energy (eV)')
+#     plt.savefig('pdos_clash.pdf')
+#
+#
+# '''
+# plotting pdos--ligand fall off
+# '''
+# if lig_fall:
+#     plt.figure()
+#     plt.plot(E_grid,lig_regular_dos,color='green',label='Attached ligands')
+#     plt.plot(E_grid,shell_dos,color='r',label='Shell')
+#     # plt.plot(E_grid,s_fc_dos,'b',label='3/4-c S')
+#     plt.plot(E_grid,core_dos,'b',label='Core')
+#     plt.plot(E_grid,lig_fall_dos,color='lime',label='Detached ligands')
+#     plt.plot(E_grid,shell_dos+core_dos+lig_dos,'k',label='Total')
+#     plt.legend()
+#     plt.xlim(x_limit)
+#     plt.ylim(0,100)
+#     plt.ylabel('Density of States')
+#     plt.xlabel('Orbital Energy (eV)')
+#     plt.savefig('pdos_lig_fall.pdf')
 # plt.show()
-
-'''
-plotting PDOS--core cd, shell cd, s, se
-'''
-plt.figure()
-plt.plot(E_grid,cd_core_dos,'c',label='Cd (core)')
-plt.plot(E_grid,cd_shell_dos,'m',label='Cd (shell)')
-plt.plot(E_grid,se_dos,color='orange',label='Se')
-plt.plot(E_grid,s_dos,'y',label='S')
-plt.plot(E_grid,cd_core_dos+cd_shell_dos+se_dos+s_dos,'k',label='Total')
-plt.legend()
-plt.xlim(x_limit)
-plt.ylim(0,100)
-plt.ylabel('Density of States')
-plt.xlabel('Orbital Energy (eV)')
-# plt.show()
-
-'''
-plotting PDOS--undercoordinated atoms
-'''
-plt.figure()
-plt.plot(E_grid,cd_uc_dos,color='cyan',label='2-c Cd')
-plt.plot(E_grid,s_uc_dos,color='gold',label='2-c S')
-plt.plot(E_grid,shell_fc_dos,color='r',label='3/4-c shell')
-# plt.plot(E_grid,s_fc_dos,'b',label='3/4-c S')
-plt.plot(E_grid,core_dos,'b',label='Core')
-plt.plot(E_grid,cd_uc_dos+s_uc_dos+shell_fc_dos+core_dos,'k',label='Total')
-plt.legend()
-plt.xlim(x_limit)
-plt.ylim(0,100)
-plt.ylabel('Density of States')
-plt.xlabel('Orbital Energy (eV)')
-plt.show()

@@ -77,10 +77,10 @@ QD_file_start=sys.argv[1] # QD crystal xyz file
 QD_file_end=sys.argv[2]   # QD optimized xyz file
 qd_beg_filename = '.'.join(QD_file_end.split('.')[0:-1])
 print('Analyzing file '+QD_file_end)
-charges_input = sys.argv[3]
-spectrum=sys.argv[4]
+# charges_input = sys.argv[3]
+# spectrum=sys.argv[4]
 # savename=sys.argv[5]
-savename = '.'.join(spectrum.split('.')[0:-1]) + str(cutoff) + '.csv'
+# savename = '.'.join(spectrum.split('.')[0:-1]) + str(cutoff) + '.csv'
 
 QD_xyz_start,atom_name_start = read_input_xyz(QD_file_start)
 QD_xyz_end,atom_name_end = read_input_xyz(QD_file_end)
@@ -144,8 +144,8 @@ cd_underc_ind_e,se_underc_ind_e = get_underc_index(QD_xyz_end,ind_Cd,ind_Se,ind_
 print('Undercoordinated Cd:',np.count_nonzero(cd_underc_ind_e))
 print('Undercoordinated Se:',np.count_nonzero(se_underc_ind_e))
 
-np.save('cd_underc_ind_3p1',get_underc_ind_large(ind_Cd,cd_underc_ind_e))
-np.save('se_underc_ind_3p1',get_underc_ind_large(ind_Se,se_underc_ind_e))
+# np.save('cd_underc_ind_3p1',get_underc_ind_large(ind_Cd,cd_underc_ind_e))
+# np.save('se_underc_ind_3p1',get_underc_ind_large(ind_Se,se_underc_ind_e))
 
 # beg_e = '.'.join(QD_file_end.split('.')[0:-1])
 # comment_e='Undercoordinated atoms from '+QD_file_end + ' cutoff '+str(cutoff)
@@ -191,7 +191,7 @@ write_underc_xyz(QD_xyz_end,atom_name_end,ind_Cd,ind_Se,ind_opt_cd_neg,ind_opt_s
 #
 ####
 # #
-# # reading in charges (same as surf vs bulk)
+# reading in charges (same as surf vs bulk)
 # Charges_full=np.loadtxt(charges_input,delimiter=',',skiprows=1,dtype=str)
 # Charges = Charges_full[:-1,1:].astype(float)
 #
@@ -238,61 +238,61 @@ write_underc_xyz(QD_xyz_end,atom_name_end,ind_Cd,ind_Se,ind_opt_cd_neg,ind_opt_s
 # underc_eh_charge=np.concatenate((sum_underc_se_frac_reshape[:,:2],sum_underc_cd_frac_reshape[:,:2]),axis=1)
 # write_underc_charge=np.concatenate((np.array([[n_underc_se/n_se,n_underc_se/n_cdse,n_underc_cd/n_cd,n_underc_cd/n_cdse]]),underc_eh_charge))
 # # np.savetxt(savename,write_underc_charge,header='se_e,se_h,cd_e,cd_h,n_uc_cd={},n_uc_se={},cutoff={}'.format(np.count_nonzero(cd_underc_ind_e),np.count_nonzero(se_underc_ind_e),cutoff),delimiter=',')
-# #
-# # ####
 # # #
-# # # PLOTTING CHARGE FRACTIONS FOR ALL EXCITATIONS
-# # # if not using undercoordination as your metric, change axis titles
+# # # ####
+# # # #
+# # # # PLOTTING CHARGE FRACTIONS FOR ALL EXCITATIONS
+# # # # if not using undercoordination as your metric, change axis titles
+# # # #
+# # # ####
 # # #
-# # ####
+# # #
+# # # Eex = np.loadtxt(spectrum,usecols=2,skiprows=1,delimiter=',')
+# # # Eex = range(0,nex)
+# # # plot_underc(Eex,sum_underc_se_frac_reshape,n_underc_se,n_cdse,n_se,'Se',w=.005,savefig=['h_undercse_eex.pdf','e_undercse_eex.pdf'])
+# # # plot_underc(Eex,sum_underc_cd_frac_reshape,n_underc_cd,n_cdse,n_cd,'Cd',w=.005,savefig=False)
 # #
+# # # Eex = np.loadtxt(spectrum,usecols=2,skiprows=1,delimiter=',')
+# # # Eex = range(0,nex)
+# # # plot_underc(Eex,sum_underc_se_frac_reshape,n_underc_se,n_cdse,n_se,'Se',w=.5,savefig=['h_undercse_exn.pdf','e_undercse_exn.pdf'])
+# # # plot_underc(Eex,sum_underc_cd_frac_reshape,n_underc_cd,n_cdse,n_cd,'Cd',w=.5,savefig=['h_underccd_exn.pdf','e_underccd_exn.pdf'])
 # #
-# # Eex = np.loadtxt(spectrum,usecols=2,skiprows=1,delimiter=',')
 # # Eex = range(0,nex)
-# # plot_underc(Eex,sum_underc_se_frac_reshape,n_underc_se,n_cdse,n_se,'Se',w=.005,savefig=['h_undercse_eex.pdf','e_undercse_eex.pdf'])
-# # plot_underc(Eex,sum_underc_cd_frac_reshape,n_underc_cd,n_cdse,n_cd,'Cd',w=.005,savefig=False)
-#
-# # Eex = np.loadtxt(spectrum,usecols=2,skiprows=1,delimiter=',')
-# # Eex = range(0,nex)
-# # plot_underc(Eex,sum_underc_se_frac_reshape,n_underc_se,n_cdse,n_se,'Se',w=.5,savefig=['h_undercse_exn.pdf','e_undercse_exn.pdf'])
-# # plot_underc(Eex,sum_underc_cd_frac_reshape,n_underc_cd,n_cdse,n_cd,'Cd',w=.5,savefig=['h_underccd_exn.pdf','e_underccd_exn.pdf'])
-#
-# Eex = range(0,nex)
-# # plot_underc_compare(Eex,sum_underc_cd_frac_reshape,cd_test_sum_reshape,n_underc_cd,n_cdse,n_cd,'Cd',w=.5,savefig=['h_underccd_vsbond_exn_3p1.pdf','e_underccd_vsbond_exn_3p1.pdf'])
-# # plot_underc_compare(Eex,sum_underc_se_frac_reshape,se_test_sum_reshape,n_underc_se,n_cdse,n_se,'Se',w=.5,savefig=['h_undercse_vsbond_exn_3p1.pdf','e_undercse_vsbond_exn_3p1.pdf'])
-# # plt.show()
-# # plot_underc(Eex,test_sum_reshape,n_underc_cd,n_cdse,n_cd,'Cd',w=.5,savefig=['h_underccd_exn.pdf','e_underccd_exn.pdf'])
-#
-# #
+# # # plot_underc_compare(Eex,sum_underc_cd_frac_reshape,cd_test_sum_reshape,n_underc_cd,n_cdse,n_cd,'Cd',w=.5,savefig=['h_underccd_vsbond_exn_3p1.pdf','e_underccd_vsbond_exn_3p1.pdf'])
+# # # plot_underc_compare(Eex,sum_underc_se_frac_reshape,se_test_sum_reshape,n_underc_se,n_cdse,n_se,'Se',w=.5,savefig=['h_undercse_vsbond_exn_3p1.pdf','e_undercse_vsbond_exn_3p1.pdf'])
 # # # plt.show()
-# #
-# # n_deloc = n_underc_se/n_se
-# #
-# # # for ones w/ more than 240
-# # # print('Percent of excitations with >25% of hole on UC Se: ',100*np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]>0.25)/240,'(',np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]>0.25),')')
-# # # print('Percent of excitations with >40% of hole on UC Se: ',100*np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]>0.40)/240,'(',np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]>0.4),')')
-# # # print('Percent of excitations with <=25% of hole on UC Se: ',100*np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]<=0.25)/240,'(',np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]<=0.25),')')
-# # # print('Percent of excitations with <=40% of hole on UC Se: ',100*np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]<=0.40)/240,'(',np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]<=0.4),')')
-# # # print('Percent of excitations with >N_deloc ({}) of hole on UC Se: '.format(n_deloc*100),100*np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]>n_deloc)/240, '(',np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]>n_deloc),')')
-# # # print('Percent of excitations with >N_deloc*2 ({}) of hole on UC Se: '.format(2*n_deloc*100),100*np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]>n_deloc*2)/240, '(',np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]>n_deloc*2),')')
-# # # print('Percent of excitations with <=N_deloc ({}) of hole on UC Se: '.format(n_deloc*100),100*np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]<=n_deloc)/240, '(',np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]<=n_deloc),')')
-# # # print('Percent of excitations with <=N_deloc*2 ({}) of hole on UC Se: '.format(2*n_deloc*100),100*np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]<=n_deloc*2)/240, '(',np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]<=n_deloc*2),')')
+# # # plot_underc(Eex,test_sum_reshape,n_underc_cd,n_cdse,n_cd,'Cd',w=.5,savefig=['h_underccd_exn.pdf','e_underccd_exn.pdf'])
 # #
 # # #
-# # '''
-# # print('Percent of excitations with >25% of hole on UC Se: ',100*np.count_nonzero(sum_underc_se_frac_reshape[:,1]>0.25)/nex, '(',np.count_nonzero(sum_underc_se_frac_reshape[:,1]>0.25),')')
-# # print('Percent of excitations with >40% of hole on UC Se: ',100*np.count_nonzero(sum_underc_se_frac_reshape[:,1]>0.40)/nex, '(',np.count_nonzero(sum_underc_se_frac_reshape[:,1]>0.4),')')
-# # print('Percent of excitations with <=25% of hole on UC Se: ',100*np.count_nonzero(sum_underc_se_frac_reshape[:,1]<=0.25)/nex, '(',np.count_nonzero(sum_underc_se_frac_reshape[:,1]<=0.25),')')
-# # print('Percent of excitations with <=40% of hole on UC Se: ',100*np.count_nonzero(sum_underc_se_frac_reshape[:,1]<=0.40)/nex, '(',np.count_nonzero(sum_underc_se_frac_reshape[:,1]<=0.4),')')
-# # print('Percent of excitations with >N_deloc ({}) of hole on UC Se: '.format(n_deloc*100),100*np.count_nonzero(sum_underc_se_frac_reshape[:,1]>n_deloc)/nex, '(',np.count_nonzero(sum_underc_se_frac_reshape[:,1]>n_deloc),')')
-# # print('Percent of excitations with >N_deloc*2  ({})of hole on UC Se: '.format(2*n_deloc*100),100*np.count_nonzero(sum_underc_se_frac_reshape[:,1]>n_deloc*2)/nex, '(',np.count_nonzero(sum_underc_se_frac_reshape[:,1]>n_deloc*2),')')
-# # print('Percent of excitations with <=N_deloc ({}) of hole on UC Se: '.format(n_deloc*100),100*np.count_nonzero(sum_underc_se_frac_reshape[:,1]<=n_deloc)/nex, '(',np.count_nonzero(sum_underc_se_frac_reshape[:,1]<=n_deloc),')')
-# # print('Percent of excitations with <=N_deloc*2 ({}) of hole on UC Se: '.format(2*n_deloc*100),100*np.count_nonzero(sum_underc_se_frac_reshape[:,1]<=n_deloc*2)/nex, '(',np.count_nonzero(sum_underc_se_frac_reshape[:,1]<=n_deloc*2),')')
-# # '''
-# # ####
+# # # # plt.show()
 # # #
-# # # PRINTS INFO ABOUT SPECIFIC EXCITATIONS
+# # # n_deloc = n_underc_se/n_se
 # # #
-# # ####
-# #
-# # # print_indiv_ex(chargefrac_tot,ind_Se,se_underc_ind_e,0,'Se')
+# # # # for ones w/ more than 240
+# # # # print('Percent of excitations with >25% of hole on UC Se: ',100*np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]>0.25)/240,'(',np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]>0.25),')')
+# # # # print('Percent of excitations with >40% of hole on UC Se: ',100*np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]>0.40)/240,'(',np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]>0.4),')')
+# # # # print('Percent of excitations with <=25% of hole on UC Se: ',100*np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]<=0.25)/240,'(',np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]<=0.25),')')
+# # # # print('Percent of excitations with <=40% of hole on UC Se: ',100*np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]<=0.40)/240,'(',np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]<=0.4),')')
+# # # # print('Percent of excitations with >N_deloc ({}) of hole on UC Se: '.format(n_deloc*100),100*np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]>n_deloc)/240, '(',np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]>n_deloc),')')
+# # # # print('Percent of excitations with >N_deloc*2 ({}) of hole on UC Se: '.format(2*n_deloc*100),100*np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]>n_deloc*2)/240, '(',np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]>n_deloc*2),')')
+# # # # print('Percent of excitations with <=N_deloc ({}) of hole on UC Se: '.format(n_deloc*100),100*np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]<=n_deloc)/240, '(',np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]<=n_deloc),')')
+# # # # print('Percent of excitations with <=N_deloc*2 ({}) of hole on UC Se: '.format(2*n_deloc*100),100*np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]<=n_deloc*2)/240, '(',np.count_nonzero(sum_underc_se_frac_reshape[0:240,1]<=n_deloc*2),')')
+# # #
+# # # #
+# # # '''
+# # # print('Percent of excitations with >25% of hole on UC Se: ',100*np.count_nonzero(sum_underc_se_frac_reshape[:,1]>0.25)/nex, '(',np.count_nonzero(sum_underc_se_frac_reshape[:,1]>0.25),')')
+# # # print('Percent of excitations with >40% of hole on UC Se: ',100*np.count_nonzero(sum_underc_se_frac_reshape[:,1]>0.40)/nex, '(',np.count_nonzero(sum_underc_se_frac_reshape[:,1]>0.4),')')
+# # # print('Percent of excitations with <=25% of hole on UC Se: ',100*np.count_nonzero(sum_underc_se_frac_reshape[:,1]<=0.25)/nex, '(',np.count_nonzero(sum_underc_se_frac_reshape[:,1]<=0.25),')')
+# # # print('Percent of excitations with <=40% of hole on UC Se: ',100*np.count_nonzero(sum_underc_se_frac_reshape[:,1]<=0.40)/nex, '(',np.count_nonzero(sum_underc_se_frac_reshape[:,1]<=0.4),')')
+# # # print('Percent of excitations with >N_deloc ({}) of hole on UC Se: '.format(n_deloc*100),100*np.count_nonzero(sum_underc_se_frac_reshape[:,1]>n_deloc)/nex, '(',np.count_nonzero(sum_underc_se_frac_reshape[:,1]>n_deloc),')')
+# # # print('Percent of excitations with >N_deloc*2  ({})of hole on UC Se: '.format(2*n_deloc*100),100*np.count_nonzero(sum_underc_se_frac_reshape[:,1]>n_deloc*2)/nex, '(',np.count_nonzero(sum_underc_se_frac_reshape[:,1]>n_deloc*2),')')
+# # # print('Percent of excitations with <=N_deloc ({}) of hole on UC Se: '.format(n_deloc*100),100*np.count_nonzero(sum_underc_se_frac_reshape[:,1]<=n_deloc)/nex, '(',np.count_nonzero(sum_underc_se_frac_reshape[:,1]<=n_deloc),')')
+# # # print('Percent of excitations with <=N_deloc*2 ({}) of hole on UC Se: '.format(2*n_deloc*100),100*np.count_nonzero(sum_underc_se_frac_reshape[:,1]<=n_deloc*2)/nex, '(',np.count_nonzero(sum_underc_se_frac_reshape[:,1]<=n_deloc*2),')')
+# # # '''
+# # # ####
+# # # #
+# # # # PRINTS INFO ABOUT SPECIFIC EXCITATIONS
+# # # #
+# # # ####
+# # #
+# # # # print_indiv_ex(chargefrac_tot,ind_Se,se_underc_ind_e,0,'Se')

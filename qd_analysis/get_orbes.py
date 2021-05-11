@@ -1,8 +1,8 @@
 import argparse
 
 # script to extract orbital energies
-# usage: python3 get_orbes [name of TDDFT output file] > [CSV file]
-# (prints to terminal by default)
+# usage: python3 get_orbes.py [name of TDDFT output file]
+# writes to [output file]_orbes.txt
 
 my_parser = argparse.ArgumentParser(description='Get orbital energies from a QChem output file')
 my_parser.add_argument('inputfile',metavar='qchem file',help='The QChem output file')
@@ -11,11 +11,8 @@ my_parser.add_argument('-t','--triplet',action='store_true',help='Specify if the
 
 args=my_parser.parse_args()
 
-# inputfile=sys.argv[1]  # output of TDDFT calculation
-
 write_lines=[]
 orbe_file_name = '.'.join(args.inputfile.split('.')[0:-1])+'_orbes.txt'
-print(orbe_file_name)
 with open(args.inputfile,'r') as inp:
     flag=0  # flag indicates whether you're in the excitation energy part of the file
     flag2=0
@@ -50,7 +47,7 @@ with open(args.inputfile,'r') as inp:
         if line.find('Optimization Cycle') != -1:
             if line.split()[-1] == args.opt_cycle:
                 flag3 = 1
-#print(write_lines)
+
 with open(orbe_file_name,'w') as outfile:
     outfile.write(write_lines[0][0]+'\n')
     for line in write_lines[1:]:

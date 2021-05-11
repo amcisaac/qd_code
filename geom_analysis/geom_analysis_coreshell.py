@@ -70,12 +70,16 @@ def plot_underc_compare(Eex,sum_frac,sum_frac2,n_underc1,n_underc2,n_atomtot,n_a
 ###
 ### USER SPECIFIED INFO
 ###
-
+save_flag = False
+save_flag=True
 cutoff = 3.1 # nearest neighbor cutoff distance (lowest)
 print('cutoff: ',cutoff)
 cutoff2 = 2.8 # nearest neighbor cutoff distance (highest)
 nncutoff = 3  # number of nearest neighbors to be considered "unpassivated" (incl. ligands)
-lig_atom = "O" # atom that attaches to the Cd in the ligand
+lig_atom= False
+lig_atom_2 = False
+lig_atom = "F" # atom that attaches to the Cd in the ligand
+lig_atom_2='H'
 
 QD_file_start=sys.argv[1] # QD crystal xyz file
 core_xyz=sys.argv[2]
@@ -95,19 +99,54 @@ ind_core=np.full(atom_name_start.shape,False)
 for i,coord in enumerate(QD_xyz_start):
     # print(i)
     for coord2 in core_xyz_start:
-        if np.all(coord2==coord):
+        if np.all(np.isclose(coord2,coord,rtol=1e-03)):
             # print(coord)
             ind_core[i]=True
 
-ind_shell = np.logical_not(ind_core)
+
 ind_Cd = (atom_name_start == 'Cd')
 ind_Se = (atom_name_start == 'Se')
 ind_S  = (atom_name_start == 'S')
+ind_attach = (atom_name_start == lig_atom) # Cd ligand
+ind_lig = np.logical_or(np.logical_or(np.logical_or((atom_name_start=='N'), (atom_name_start == 'C')),(atom_name_start == 'H')),(atom_name_start=='Cl'))
+ind_attach2 = (atom_name_start==lig_atom_2) # S ligand
+# print(ind_lig)
+# ind_lig = np.logical_and(np.logical_and(np.logical_not(ind_Cd),np.logical_not(ind_Se)),np.logical_not(ind_S))
+# print('N lig atoms',np.count_nonzero(ind_lig))
+ind_shell = np.logical_and(np.logical_not(ind_core),np.logical_not(ind_lig))
 ind_chal = np.logical_or(ind_S,ind_Se)
+ind_chal_lig = np.logical_or(ind_chal,ind_attach)
+ind_S_lig = np.logical_or(ind_S,ind_attach)    # S + lig that binds to Cd
 ind_shell_Cd = np.logical_and(ind_shell,ind_Cd)
 ind_core_Cd = np.logical_and(ind_core,ind_Cd)
-ind_lig = False
-ind_attach = False
+ind_shell_Cd_lig = np.logical_and(ind_shell_Cd,ind_attach2) # Cd + lig that binds to S
+
+# print(ind_shell.shape)
+# print(ind_core.shape)
+# print(ind_chal.shape)
+# print(ind_chal_lig.shape)
+# print(ind_S_lig.shape)
+# print(ind_shell_Cd.shape)
+# print(ind_core_Cd.shape)
+# print(ind_Se.shape)
+# print(ind_attach.shape)
+
+# print(np.count_nonzero(ind_shell))
+# print(np.count_nonzero(ind_core))
+# print(np.count_nonzero(ind_chal))
+# print(np.count_nonzero(ind_chal_lig))
+# print(np.count_nonzero(ind_S_lig))
+# print(np.count_nonzero(ind_shell_Cd))
+# print(np.count_nonzero(ind_core_Cd))
+# print(np.count_nonzero(ind_Se))
+# print(np.count_nonzero(ind_attach))
+
+# print("N core atoms", np.count_nonzero(ind_core))
+# print('N shell atoms',np.count_nonzero(ind_shell))
+# print('N S atoms',np.count_nonzero(ind_S))
+# print('N Se atoms',np.count_nonzero(ind_Se))
+# ind_lig =
+# ind_attach = False
 
 
 n_cdse_core = float(np.count_nonzero(ind_core))
@@ -154,31 +193,79 @@ n_cdshell = float(np.count_nonzero(ind_shell_Cd))
 ####
 
 # # core/shell
-dist_list = get_dists_cs(QD_xyz_end,ind_core_Cd,ind_Se,ind_shell_Cd,ind_S)
-cdcore_underc_ind,secore_underc_ind,cdcore_wshell_underc_ind,secore_wshell_underc_ind,cdshell_underc_ind,sshell_underc_ind=get_underc_index_cs(ind_core_Cd,ind_Se,ind_shell_Cd,ind_S,cutoff,nncutoff,dist_list)
+dist_list = get_dists_cs(QD_xyz_end,ind_core_Cd,ind_Se,ind_shell_Cd,ind_S,ind_attach,ind_attach2)
+cdcore_underc_ind,secore_underc_ind,cdcore_wshell_underc_ind,secore_wshell_underc_ind,cdshell_underc_ind,sshell_underc_ind,attach_underc_ind,attach_underc_ind2=get_underc_index_cs(ind_core_Cd,ind_Se,ind_shell_Cd,ind_S,cutoff,nncutoff,dist_list,ind_attach,ind_attach2)
+cd_core_bond_ind,se_core_bond_ind,cd_cs_bond_ind,ses_cs_bond_ind,cd_shell_bond_ind,s_shell_bond_ind=get_bonded_index_cs(dist_list[0],ind_core_Cd,ind_Se,ind_shell_Cd,ind_S,cutoff)
 
 
-np.save('cdshell_underc_ind_3p1',get_underc_ind_large(ind_shell_Cd,cdshell_underc_ind) )
-np.save('sshell_underc_ind_3p1',get_underc_ind_large(ind_S,sshell_underc_ind))
+
 
 n_underc_cdcore_co = float(np.count_nonzero(cdcore_underc_ind))
 n_underc_secore_co = float(np.count_nonzero(secore_underc_ind))
 n_underc_cdshell_sc = float(np.count_nonzero(cdshell_underc_ind))
 n_underc_sshell_sc = float(np.count_nonzero(sshell_underc_ind))
 
+n_bond_cdcore = float(np.count_nonzero(cd_core_bond_ind))
+n_bond_secore = float(np.count_nonzero(se_core_bond_ind))
+
+n_bond_cd_cs = float(np.count_nonzero(cd_cs_bond_ind))
+n_bond_ses_cs = float(np.count_nonzero(ses_cs_bond_ind))
+
+n_bond_cdshell = float(np.count_nonzero(cd_shell_bond_ind))
+n_bond_sshell = float(np.count_nonzero(s_shell_bond_ind))
+
+
 print('Optimized geometry, bare core:')
 print('Undercoordinated Cd:',np.count_nonzero(cdcore_underc_ind))
 print('Undercoordinated Se:',np.count_nonzero(secore_underc_ind))
+print('Clashing Cd:',n_bond_cdcore)
+print('Clashing Se:',n_bond_secore)
 
 print('')
 print('Optimized geometry, core with shell:')
 print('Undercoordinated Cd:',np.count_nonzero(cdcore_wshell_underc_ind))
 print('Undercoordinated Se:',np.count_nonzero(secore_wshell_underc_ind))
+print('Clashing Cd:',n_bond_cd_cs-n_bond_cdshell-n_bond_cdcore)
+print('Clashing Se/S:',n_bond_ses_cs-n_bond_sshell-n_bond_secore)
 
 print('')
 print('Optimized geometry, shell with core:')
 print('Undercoordinated Cd:',np.count_nonzero(cdshell_underc_ind))
 print('Undercoordinated S :',np.count_nonzero(sshell_underc_ind))
+print('Ligand 1 fallen off: ',np.count_nonzero(attach_underc_ind))
+print('Ligand 2 fallen off: ',np.count_nonzero(attach_underc_ind2))
+print('Clashing Cd:',n_bond_cdshell)
+print('Clashing S:',n_bond_sshell)
+
+
+
+
+# print(attach_underc_ind.shape)
+if np.any(ind_attach):
+    lig_underc_ind = get_underc_ind_large(ind_attach,attach_underc_ind)
+    ind_attach_lg = get_underc_ind_large(ind_attach,attach_underc_ind)
+    # print(lig_underc_ind.shape)
+    for i in range(0,len(ind_attach_lg)):
+        if ind_attach_lg[i] == True:
+            lig_underc_ind[i-1:i+6] = True
+
+if save_flag:
+    np.save('cdshell_underc_ind_3p1',get_underc_ind_large(ind_shell_Cd,cdshell_underc_ind))
+    np.save('sshell_underc_ind_3p1',get_underc_ind_large(ind_S,sshell_underc_ind))
+
+    np.save('cdshell_clash_ind_3p1',get_underc_ind_large(ind_shell_Cd,cd_shell_bond_ind))
+    np.save('sshell_clash_ind_3p1',get_underc_ind_large(ind_S,s_shell_bond_ind))
+    # print(np.count_nonzero(lig_underc_ind))
+
+    write_underc_xyz(QD_xyz_end,atom_name_end,ind_shell_Cd,ind_S,cdshell_underc_ind,sshell_underc_ind,'underc_'+str(cutoff),'Undercoordinated atoms from '+QD_file_end + ' cutoff '+str(cutoff))
+    write_underc_xyz(QD_xyz_end,atom_name_end,ind_shell_Cd,ind_S,cd_shell_bond_ind,s_shell_bond_ind,'bonded_'+str(cutoff),'Clashing atoms from '+QD_file_end + ' cutoff '+str(cutoff))
+    if np.any(ind_attach):
+        np.save('lig_fall_ind_3p1',lig_underc_ind)
+        lig_fall_xyz = QD_xyz_end[lig_underc_ind]
+        lig_fall_name = atom_name_end[lig_underc_ind]
+        write_xyz('ligand_detach_{}.xyz'.format(str(cutoff)),lig_fall_name,lig_fall_xyz,'xyz coordinates of ligands that detached from '+QD_file_end+' with cutoff '+str(cutoff))
+
+# print(QD_xyz_end[get_underc_ind_large(ind_shell_Cd,cdshell_underc_ind)])
 # # '''
 # beg_e = '.'.join(QD_file_end.split('.')[0:-1])
 # comment_e='Undercoordinated atoms from '+QD_file_end + ' cutoff '+str(cutoff)

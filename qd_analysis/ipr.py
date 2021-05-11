@@ -24,7 +24,7 @@ def inv_par_rat(index_CdSe, Charges):
     cdse_sum=np.sum(Charges[index_CdSe],0) # total charge on cd and se
     cdse_sum[np.nonzero(np.abs(cdse_sum)<=1e-15)] = 1e-8
     Ch_cdse_n=Charges[index_CdSe]/cdse_sum # fraction of charge on each cdse
-    print(np.sum(np.power(Ch_cdse_n,2),0))
+    #print(np.sum(np.power(Ch_cdse_n,2),0))
     ipr=1.0/np.sum(np.power(Ch_cdse_n,2),0)  # calculate ipr
     ipr_write=np.reshape(ipr,(-1,3)) /np.sum(index_CdSe) # get into correct shape to write
                                                          # the indices are in numpy format with [True, True, ...False, False]

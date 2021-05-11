@@ -1,8 +1,11 @@
 import argparse
 
 # script to extract spectrum from TDDFT calculation
-# usage: python3 get_spectrum [name of TDDFT output file]
-# writes to [TDDFT output] + [tddft or tda]_spec.csv unless -o/--output specified
+# usage:
+#     for RPA true:  python3 get_spectrum.py [name of TDA/TDDFT output file] --tda --tddft
+#     for RPA false: python3 get_spectrum.py [name of TDA output file] --tda
+#     for RPA 2:     python3 get_spectrum.py [name of TDDFT output file] --tddft
+# writes to [TDDFT output]_[tddft or tda]_spec.csv unless -o/--output specified
 
 # tddft and tda refer to what's in the file--can't select only tda if tddft is also in the file :(
 my_parser = argparse.ArgumentParser(description='Get spectrum from a QChem TDA/TDDFT output file')
@@ -15,7 +18,7 @@ my_parser.add_argument('-o','--output',action='store',help='Specify different na
 args=my_parser.parse_args()
 
 # name files for excitation energies:
-if args.output: beg_output_name = '/'.join(args.inputfile.split('/')[:-1])+ '/'+args.output
+if args.output: beg_output_name = '/'.join(args.inputfile.split('/')[:-1])+ '/'+args.output # preserves original path
 else: beg_output_name = '.'.join(args.inputfile.split('.')[:-1])
 
 if args.tda:

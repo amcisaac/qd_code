@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from qd_helper import *
+# from qd_helper import *
 import copy
 from geom_helper import *
 import argparse
@@ -9,7 +9,7 @@ import argparse
 Script to do geometry analysis of CdSe QD's and determine if any surface atoms are
 undercoordinated.
 
-Usage: python3 get_hist.py [xyz file of structure]
+Usage: python3 get_hist.py [xyz file of structure] [ligand attach atom] [options]
 '''
 
 my_parser = argparse.ArgumentParser(description='Get histogram of Cd-Se and/or Cd-ligand distances from xyz file')
@@ -120,10 +120,10 @@ if save_uc:
     underc_cd_hist = cdse_dists[cd_underc_ind_e].flatten()
 
     if np.any(se_underc_ind_e):
-        np.savetxt(qd_beg_filename+'_undercse_hist.csv',underc_se_hist)
+        # np.savetxt(qd_beg_filename+'_undercse_hist.csv',underc_se_hist)
         if plot: plt.hist(underc_se_hist, bins=800,label='UC Se')
     if np.any(cd_underc_ind_e):
-        np.savetxt(qd_beg_filename+'_underccd_hist.csv',underc_cd_hist)
+        # np.savetxt(qd_beg_filename+'_underccd_hist.csv',underc_cd_hist)
         if plot: plt.hist(underc_cd_hist,bins=800,label='UC Cd')
 
 if plot:

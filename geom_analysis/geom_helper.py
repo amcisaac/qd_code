@@ -70,10 +70,11 @@ def dist_atom12(all_dists,ind_1,ind_2):
     '''
     return all_dists[ind_1].T[ind_2].T
 
-def get_dists_cs(QD_xyz,ind_Cd,ind_Se,ind_shell_cd,ind_shell_chal):
+def get_dists_cs(QD_xyz,ind_Cd,ind_Se,ind_shell_cd,ind_shell_chal,ind_attach=False,ind_attach2=False):
     all_dists = dist_all_points(QD_xyz)
     cd_se_dists_all = dist_atom12(all_dists,ind_Cd,ind_Se) # cd (core) - se (core)
     se_cd_dists_all = dist_atom12(all_dists,ind_Se,ind_Cd) # se (core) - cd (core)
+    # print(np.all(cd_se_dists_all==se_cd_dists_all.T))
 
     ind_ses =np.logical_or(ind_Se,ind_shell_chal) # index of se and s atoms
     ind_cdcd = np.logical_or(ind_Cd,ind_shell_cd) # index of all cd
@@ -86,7 +87,27 @@ def get_dists_cs(QD_xyz,ind_Cd,ind_Se,ind_shell_cd,ind_shell_chal):
     sshell_cd_dist = dist_atom12(all_dists, ind_shell_chal,ind_cdcd) # s (shell) - cd (core) and cd (shell)
     # print(all_dists,cd_se_dists_all,cdcore_ses_dist,secore_cd_dist,cdshell_ses_dist,sshell_cd_dist)
 
-    return all_dists,cd_se_dists_all,cdcore_ses_dist,secore_cd_dist,cdshell_ses_dist,sshell_cd_dist
+    # print(cdcore_ses_dist.shape)
+    # print(sshell_cd_dist.shape)
+    if np.any(ind_attach): # if ligands present
+        ind_challig = np.logical_or(ind_ses,ind_attach)
+        cd_lig_dists_all = dist_atom12(all_dists,ind_shell_cd,ind_attach)
+        cd_chal_lig_dists_all = dist_atom12(all_dists,ind_shell_cd,ind_challig)
+        # print(cd_lig_dists_all.shape)
+
+    else: # may need to fix this so it works with non-lig
+        cd_lig_dists_all = []
+        cd_chal_lig_dists_all = cdshell_ses_dist # this should mean that anything that uses this will default to just cd-ses
+
+    if np.any(ind_attach2):
+        ind_cdlig = np.logical_or(ind_cdcd,ind_attach2)
+        s_lig_dists_all = dist_atom12(all_dists,ind_shell_chal,ind_attach2)
+        s_cd_lig_dists_all = dist_atom12(all_dists,ind_shell_chal,ind_cdlig)
+    else:
+        s_lig_dists_all = []
+        s_cd_lig_dists_all = sshell_cd_dist # if no ligand 2, just return cd-s dists
+
+    return all_dists,cd_se_dists_all,cdcore_ses_dist,secore_cd_dist,cdshell_ses_dist,sshell_cd_dist,cd_lig_dists_all,cd_chal_lig_dists_all,s_lig_dists_all,s_cd_lig_dists_all
 
 
 def get_dists(QD_xyz,ind_Cd,ind_Se,ind_attach=False,ind_shell_cd=False,ind_shell_chal=False,cs=False):
@@ -152,7 +173,7 @@ def num_nn(dist_list,cutoff):
     nn_list = np.sum(dist_list < cutoff,axis=1)
     return nn_list
 
-def get_nn(cdselig_dists,secd_dists,ind_Cd,ind_Se,cutoff,Natoms,ind_lig=False):
+def get_nn(cdselig_dists,secd_dists,ind_Cd,ind_Se,cutoff,Natoms,ind_lig=False,ind_lig2=False):
     '''
     Function that calculates the number of nearest neighbors for each atom,
     based on atom type. E.g. can restrict such that Cd only has Se NN's
@@ -179,7 +200,8 @@ def get_nn(cdselig_dists,secd_dists,ind_Cd,ind_Se,cutoff,Natoms,ind_lig=False):
     all_nn[ind_Se]=se_nn_cdonly # using just cd for se
     if np.any(ind_lig):
         all_nn[ind_lig]=100 # set these to very high to avoid any weirdness
-
+    if np.any(ind_lig2):
+        all_nn[ind_lig2]=100 # set these to very high to avoid any weirdness
     return all_nn,cd_nn_selig,se_nn_cdonly
 
 def nn_histogram(xyz,ind_Cd,ind_Se,label1='',ind_attach=False,xyz2=False,label2=''):
@@ -307,6 +329,8 @@ def get_bonded_index(xyz,ind_Cd,ind_Se,ind_lig,ind_attach,cutoff,nncutoff,verbos
         print('Bonded Cd:',cd_nn_cd[cd_bond_ind])
         print('Bonded Se:',se_nn_se[se_bond_ind])
     return cd_bond_ind,se_bond_ind
+
+
 
 def get_ind_dif(xyz1,ind_Cd,ind_Se,ind_lig,ind_attach,cutoff,nncutoff,cutoff2=None,xyz2=None):
     '''
@@ -492,7 +516,7 @@ def print_indiv_ex(chargefrac_tot,ind_orig,ind_underc,n,atomname):
 # CORE-SHELL SPECIFIC FUNCTIONS
 #
 #######
-def get_underc_index_cs(ind_Cd_core,ind_Se,ind_Cd_shell,ind_S,cutoff,nncutoff,dist_list,verbose=False):
+def get_underc_index_cs(ind_Cd_core,ind_Se,ind_Cd_shell,ind_S,cutoff,nncutoff,dist_list,ind_attach=False,ind_attach2=False,verbose=False):
     '''
     Function that finds undercoordinated Cd and Se atoms in a QD.
 
@@ -508,13 +532,14 @@ def get_underc_index_cs(ind_Cd_core,ind_Se,ind_Cd_shell,ind_S,cutoff,nncutoff,di
         verbose: if True, prints the number of nearest neighbors for
                  "undercoordinated" atoms
     '''
-    all_dists,cdse_core_dists,cdcore_ses_dist,secore_cd_dist,cdshell_ses_dist,sshell_cd_dist = dist_list #get_dists_cs(xyz,ind_Cd_core,ind_Se,ind_Cd_shell,ind_S)
+    all_dists,cdse_core_dists,cdcore_ses_dist,secore_cd_dist,cdshell_ses_dist,sshell_cd_dist,cdshell_lig_dist,cdshell_chal_lig_dist,sshell_lig_dist,sshell_cd_lig_dist = dist_list #get_dists_cs(xyz,ind_Cd_core,ind_Se,ind_Cd_shell,ind_S)
+    # print(cdse_core_dists)
+    # print(cdse_core_dists.T)
     Natoms = len(ind_Cd_core)
     # print(Natoms)
-    all_nn,cd_se_nn,se_cd_nn = get_nn(cdse_core_dists,cdse_core_dists,ind_Cd_core,ind_Se,cutoff,Natoms) # bare core
+    all_nn,cd_se_nn,se_cd_nn = get_nn(cdse_core_dists,cdse_core_dists.T,ind_Cd_core,ind_Se,cutoff,Natoms) # bare core
     all_nn,cdcore_nn_ses,se_nn_cdcd = get_nn(cdcore_ses_dist,secore_cd_dist,ind_Cd_core,ind_Se,cutoff,Natoms)    # core coord. when considering shell too
-    all_nn,cdshell_nn_ses,s_nn_cdcd = get_nn(cdshell_ses_dist,sshell_cd_dist,ind_Cd_shell,ind_S,cutoff,Natoms) # undercoordinated shell atoms (includes core-shell bonds)
-
+    all_nn,cdshell_nn_ses,s_nn_cdcd = get_nn(cdshell_chal_lig_dist,sshell_cd_lig_dist,ind_Cd_shell,ind_S,cutoff,Natoms,ind_attach,ind_attach2) # undercoordinated shell atoms (includes core-shell bonds)
 
     # core-core
     cd_underc_ind = cd_se_nn < nncutoff
@@ -528,6 +553,20 @@ def get_underc_index_cs(ind_Cd_core,ind_Se,ind_Cd_shell,ind_S,cutoff,nncutoff,di
     cdshell_underc_inclcore_ind = cdshell_nn_ses < nncutoff
     s_underc_inclcore_ind = s_nn_cdcd < nncutoff
 
+    if len(cdshell_lig_dist) > 0:
+        all_nn,cdshell_nn_lig,lig_nn_cdshell = get_nn(cdshell_lig_dist,cdshell_lig_dist.T,ind_Cd_shell,ind_attach,cutoff,Natoms)
+
+        # ligand-Cd
+        attach_underc_ind = lig_nn_cdshell < 1 # each N should be bound to one cd
+    else:
+        attach_underc_ind = []
+    if len(sshell_lig_dist) > 0:
+        all_nn,sshell_nn_lig,lig_nn_sshell = get_nn(sshell_lig_dist,sshell_lig_dist.T,ind_S,ind_attach2,cutoff,Natoms)
+
+        # ligand-Cd
+        attach_underc_ind2 = lig_nn_sshell < 1 # each N should be bound to one cd
+    else:
+        attach_underc_ind2 = []
     if verbose:
         print('Undercoordinated Cd (core only):',cd_se_nn[cd_underc_ind])
         print('Undercoordinated Se (core only):',se_cd_nn[se_underc_ind])
@@ -535,4 +574,48 @@ def get_underc_index_cs(ind_Cd_core,ind_Se,ind_Cd_shell,ind_S,cutoff,nncutoff,di
         print('Undercoordinated Se (core with shell):',se_nn_cdcd[se_underc_inclshell_ind])
         print('Undercoordinated Cd (shell with core):',cdshell_nn_ses[cdshell_underc_inclcore_ind])
         print('Undercoordinated Se (shell with core):',s_nn_cdcd[s_underc_inclcore_ind])
-    return cd_underc_ind,se_underc_ind,cd_underc_inclshell_ind,se_underc_inclshell_ind,cdshell_underc_inclcore_ind,s_underc_inclcore_ind
+    return cd_underc_ind,se_underc_ind,cd_underc_inclshell_ind,se_underc_inclshell_ind,cdshell_underc_inclcore_ind,s_underc_inclcore_ind,attach_underc_ind,attach_underc_ind2
+
+# def get_bonded_index_cs(xyz,ind_Cd,ind_Se,ind_lig,ind_attach,cutoff,nncutoff,verbose=False):
+def get_bonded_index_cs(all_dists,ind_Cd,ind_Se,ind_cd_shell,ind_s_shell,cutoff,verbose=False):
+    '''
+    Function that finds undercoordinated Cd and Se atoms in a QD.
+
+    Inputs:
+        xyz: np array of xyz coordinates for the QD. shape (Natoms,3)
+        ind_Cd: boolean array of shape Natoms, indexing the Cd atoms
+        ind_Se: boolean array of shape Natoms, indexing the Se atoms
+        ind_lig: boolean array of shape Natoms, indexing the ligand atoms
+        ind_attach: boolean array indexing the ligand atoms that bind to Cd
+        cutoff: cutoff for a nearest neighbor distance
+        nncutoff: number of nearest neighbors to be considered "fully coordinated"
+                  (< this classified as "undercoordinated")
+        verbose: if True, prints the number of nearest neighbors for
+                 "undercoordinated" atoms
+    '''
+    # all_dists,cdse_dists,cdlig_dists,cdselig_dists,secd_dists = get_dists(xyz,ind_Cd,ind_Se,ind_attach)
+    ind_cd_all = np.logical_or(ind_Cd,ind_cd_shell)
+    ind_chal = np.logical_or(ind_Se, ind_s_shell)
+    cdcd_core_dists,sese_core_dists=get_dists_bonded(all_dists,ind_Cd,ind_Se)
+    cdcd_cs_dists,ses_cs_dists=get_dists_bonded(all_dists,ind_cd_all,ind_chal)
+    cdcd_shell_dists,ss_shell_dists=get_dists_bonded(all_dists,ind_cd_shell,ind_s_shell)
+    Natoms = len(ind_Cd)
+
+    all_nn,cd_nn_cd_core,se_nn_se_core = get_nn(cdcd_core_dists,sese_core_dists,ind_Cd,ind_Se,cutoff,Natoms)
+    all_nn,cd_nn_cd_cs,se_nn_s_cs = get_nn(cdcd_cs_dists,ses_cs_dists,ind_cd_all,ind_chal,cutoff,Natoms)
+    all_nn,cd_nn_cd_shell,s_nn_s_shell = get_nn(cdcd_shell_dists,ss_shell_dists,ind_cd_shell,ind_s_shell,cutoff,Natoms)
+
+    cd_core_bond_ind = cd_nn_cd_core>1
+    se_core_bond_ind = se_nn_se_core>1
+
+    cd_cs_bond_ind = cd_nn_cd_cs>1
+    ses_cs_bond_ind = se_nn_s_cs>1
+
+    cd_shell_bond_ind = cd_nn_cd_shell>1
+    s_shell_bond_ind = s_nn_s_shell>1
+
+
+    if verbose:
+        print('Bonded Cd:',cd_nn_cd[cd_bond_ind])
+        print('Bonded Se:',se_nn_se[se_bond_ind])
+    return cd_core_bond_ind,se_core_bond_ind,cd_cs_bond_ind,ses_cs_bond_ind,cd_shell_bond_ind,s_shell_bond_ind
