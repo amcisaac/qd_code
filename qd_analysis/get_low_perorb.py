@@ -28,9 +28,10 @@ with open(outputfile,'r') as outfile:
 # extracting the charges into an array
 flag=True
 for i,line in enumerate(outlines):
-    if line.find("Partial Lowdin") != -1:
-        break
-    if line.find("1    H 1   s") != -1:
+    # if line.find("Partial Lowdin") != -1:
+    #     break
+    # if line.find("1    H 1   s") != -1:
+    if line.find('1    Cd1   s') != -1:
         # j += 1
         print(i,line)
         # print(outlines[i:i+Nshells])
