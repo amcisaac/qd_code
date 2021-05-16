@@ -12,7 +12,7 @@ xyz,atoms=read_input_xyz(xyzfile)
 Natom = len(atoms)
 # print(Natom)
 remainder=(Norbs % 6)
-print(remainder)
+# print(remainder)
 
 shell_per_atom_lanl2dz = {'Cd': 3, 'Se': 2, 'S': 2}
 shell_per_atom_sto3g = {'C':2,'H':1}
@@ -33,7 +33,7 @@ for i,line in enumerate(outlines):
     # if line.find("1    H 1   s") != -1:
     if line.find('1    Cd1   s') != -1:
         # j += 1
-        print(i,line)
+        # print(i,line)
         # print(outlines[i:i+Nshells])
         try:
             x=np.loadtxt(outputfile,skiprows=i,max_rows=Nshells,usecols=(-6,-5,-4,-3,-2,-1))
@@ -41,7 +41,7 @@ for i,line in enumerate(outlines):
             cols=(-6,-5,-4,-3,-2,-1)[6-remainder:]
             # print(cols)
             x=np.loadtxt(outputfile,skiprows=i,max_rows=Nshells,usecols=cols)
-            print(x)
+            # print(x)
         if not flag:
             partial_low_lg= np.concatenate((partial_low_lg,x),axis=1)
             # print(partial_low)
@@ -49,7 +49,7 @@ for i,line in enumerate(outlines):
             partial_low_lg = x
             flag=False
 
-print(partial_low_lg.shape)
+# print(partial_low_lg.shape)
 
 # create an array that's Natoms x Norbs, not Nshells x N orbs
 # contract shells into one per atom
