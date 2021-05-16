@@ -153,7 +153,10 @@ def make_s_matrix(s_file_raw,nbas):
 def get_mul_low(P,S,X_inv,atoms,orb_per_atom,z):
     PS = P@S
     mul_perorb=np.diag(PS)
+    print(PS.shape)
+    print(PS)
     SPS = X_inv@P@X_inv
+    # print(SPS)
     low_perorb=np.diag(SPS)
     print(low_perorb.shape)
 
@@ -162,10 +165,11 @@ def get_mul_low(P,S,X_inv,atoms,orb_per_atom,z):
     j = 0
     for atom in atoms:
         nbas_i = orb_per_atom[atom]
-        mul_AO = mul_perorb[j:j+nbas_i]
-        low_AO = low_perorb[j:j+nbas_i]
+        mul_AO = mul_perorb[j:j+nbas_i] # mulliken charge for atom i, per orbital
+        low_AO = low_perorb[j:j+nbas_i] # lowdin charge for atom i, per orbital
+        print(2-mul_AO)
 
-        mul.append(np.sum(mul_AO,axis=0))
+        mul.append(np.sum(mul_AO,axis=0)) # total mul = sum over orbitals for atom i, add this to list of charges
         low.append(np.sum(low_AO,axis=0))
         j += nbas_i
 
