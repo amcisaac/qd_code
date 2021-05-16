@@ -17,7 +17,7 @@ remainder=(Norbs % 6)
 shell_per_atom_lanl2dz = {'Cd': 3, 'Se': 2, 'S': 2}
 shell_per_atom_sto3g = {'C':2,'H':1}
 shell_per_atom_ccpvdz = {'C':3,'H':2}
-shell_per_atom_test = shell_per_atom_sto3g
+shell_per_atom_test = shell_per_atom_lanl2dz
 
 partial_low = np.zeros((Natom,Norbs))
 # print(partial_low)
