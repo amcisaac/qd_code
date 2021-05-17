@@ -1,6 +1,7 @@
 import numpy as np
 import sys
 from qd_helper import read_input_xyz,write_xyz
+from pdos_helper import *
 
 '''
 Script to analyze the mulliken/lowdin charges from tddft/tda excitations
@@ -9,7 +10,7 @@ USAGE:
 python3 surf_vs_bulk_clean.py [QD xyz file] [charge file] [optional: number of excitation to print detailed info about]
 '''
 
-def inv_par_rat(index_CdSe, Charges):
+def inv_par_rat(index_CdSe, Charges,extra_index=False):
     '''
     Function to calculate the inverse participation ratio for the e/h of each excitation.
 
@@ -21,15 +22,17 @@ def inv_par_rat(index_CdSe, Charges):
     Outputs: ipr_write -- np array where the ith row is the ipr for the ith excitation and
                           the first column is the electron, second is the hole, third is delta
     '''
+    if np.all(extra_index == False):
+        extra_index = index_CdSe
     # N_atoms = np.count_nonzero(index_CdSe)
-    cdse_sum=np.sum(Charges[index_CdSe],axis=0) # total charge on cd and se
-    # print(cdse_sum)
+    cdse_sum=np.sum(Charges[index_CdSe],axis=0) # total charge on all atoms
+    # print(cdse_sum[800:815])
     cdse_sum[np.nonzero(np.abs(cdse_sum)<=1e-15)] = 1e-8
-    Ch_cdse_n=Charges[index_CdSe]/cdse_sum # fraction of charge on each cdse
+    Ch_cdse_n=Charges[index_CdSe]/cdse_sum # fraction of charge on each cdse, normalized
     #print(np.sum(np.power(Ch_cdse_n,2),0))
     # print(Ch_cdse_n)
     # print(np.sum(np.power(Ch_cdse_n,2),axis=0))
-    ipr=1.0/(np.sum(index_CdSe)*np.sum(np.power(Ch_cdse_n,2),axis=0))  # calculate ipr
+    ipr=1.0/(np.sum(index_CdSe)*np.sum(np.power(Ch_cdse_n[extra_index],2),axis=0))  # calculate ipr
     # print(ipr)
     # ipr_write=np.reshape(ipr,(1,-1)).T  # get into correct shape to write
                                                          # the indices are in numpy format with [True, True, ...False, False]
@@ -37,6 +40,9 @@ def inv_par_rat(index_CdSe, Charges):
 
     # print(ipr_write)                   # biggest ipr (most delocalized)
     # print(np.sum(index_CdSe))
+    # print(np.where(ipr>0.5))
+    # print(np.where(cdse_sum<0.3))
+
     return ipr
 
 
@@ -46,23 +52,27 @@ def inv_par_rat(index_CdSe, Charges):
 ###
 
 QD_file_input=sys.argv[1] # QD xyz file
-charges_input=sys.argv[2] # file with all the charges for all excitations
-if len(sys.argv) > 3:
-    n = int(sys.argv[3]) -1   # can optionally specify a specific excitation to print info for
+core_xyz_file = sys.argv[2]
+charges_input=sys.argv[3] # file with all the charges for all excitations
+if len(sys.argv) > 4:
+    n = int(sys.argv[4]) -1   # can optionally specify a specific excitation to print info for
     indiv = True
     verbose = True
 else:
     indiv = False
 
+ind_lig=False
 ###
 ### SEPARATING ATOMS INTO SURFACE VS BULK
 ###
 QD_xyz,atom_name = read_input_xyz(QD_file_input)
+core_xyz,core_atoms=read_input_xyz(core_xyz_file)
 
 # getting indices of different types of atoms
 ind_Cd = (atom_name == "Cd")
 ind_Se = (atom_name == "Se")
 ind_S = (atom_name == 'S')
+ind_core,ind_shell = get_cs_ind(QD_xyz,core_xyz,atom_name,ind_lig)
 ind_CdSe = np.logical_or(ind_Cd, ind_Se)
 ind_CdSeS = np.logical_or(ind_CdSe, ind_S)
 ind_lig = np.logical_not(ind_CdSe)  # ligand atoms are defined as anything that isn't cd or se (!)
@@ -84,7 +94,9 @@ Charges=np.load(charges_input)
 # Charges = Charges_full[:-1,1:].astype(float)
 
 # calculate ipr
-ipr_write = inv_par_rat(ind_CdSe, Charges)
+ipr_cdses = inv_par_rat(ind_CdSeS, Charges)
+ipr_core = inv_par_rat(ind_CdSeS,Charges,ind_core)
+ipr_shell = inv_par_rat(ind_CdSeS,Charges,ind_shell)
 # print(ipr_write)
 
 ###
@@ -101,7 +113,9 @@ if indiv:
 # if individual info not requested, save charges to file
 if not indiv:
     # ipr has just the beginning of the charge file as the filename
-    np.savetxt('.'.join(charges_input.split('.')[0:-1]) + '_ipr.csv',ipr_write,delimiter=',')
+    np.savetxt('.'.join(charges_input.split('.')[0:-1]) + '_ipr.csv',ipr_cdses,delimiter=',')
+    np.savetxt('.'.join(charges_input.split('.')[0:-1]) + '_ipr_core.csv',ipr_core,delimiter=',')
+    np.savetxt('.'.join(charges_input.split('.')[0:-1]) + '_ipr_shell.csv',ipr_shell,delimiter=',')
 #'''
 
 # # TODO: more functions/organization?, warnings for if alpha negative?
