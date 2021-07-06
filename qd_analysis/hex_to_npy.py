@@ -1,11 +1,12 @@
 import numpy as np
 import sys
-from pdos_helper import *
+from pdos_helper import build_S_mo
 
-nbas=int(sys.argv[1])       # number of basis functions
-nocc=int(sys.argv[2])       # number of occupied basis functions
-coeff_file = sys.argv[3]    # hex version of qchem 53.0
-s_file=sys.argv[4]          # hex version of qchem 320.0
+bas_file=sys.argv[1]       # number of basis functions
+coeff_file = sys.argv[2]    # hex version of qchem 53.0
+s_file=sys.argv[3]          # hex version of qchem 320.0
+
+nbas,nocc=np.loadtxt(bas_file,dtype=int,unpack=True)
 
 mo_mat,mo_e,S=build_S_mo(s_file,coeff_file,nbas,nocc)
 

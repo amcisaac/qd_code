@@ -19,7 +19,7 @@ Please specify a radius and method below.
 
 input_file = sys.argv[1] # xyz file of crystal slab
 rad = 11   # core radius, in Angstroms
-rad2 = 15.1  # shell radius, in Angstroms
+rad2 = 30 #15.1  # shell radius, in Angstroms
 n_ctr =6  # specifies method of choosing the center -- 6 is middle of cage,
               # 3 is middle of plane, 1 is middle of bond, 'cd' is on cd, 'se' is on se
               # 0 is center of xyz, 'random' will determine the center randomly to find a stoichiometric dot
