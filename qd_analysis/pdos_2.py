@@ -103,7 +103,7 @@ ind_core,ind_shell = get_cs_ind(xyz,core_xyz,atoms,ind_lig)
 ind_cd_core = np.logical_and(ind_core, ind_Cd)
 ind_cd_shell = np.logical_and(ind_shell,ind_Cd)
 
-print(np.count_nonzero(ind_core))
+print('Number of core atoms:',np.count_nonzero(ind_core))
 
 ind_cd_ao,ind_se_ao,ind_s_ao,ind_core_ao,ind_shell_ao,ind_lig_ao \
     =get_ao_ind([ind_Cd,ind_Se,ind_S,ind_core,ind_shell,ind_lig],atoms,nbas,orb_per_atom)
@@ -124,7 +124,7 @@ print(alpha_shell.shape)
 calculate projected DOS
 '''
 mo_e = mo_e * 27.2114 # MO energy, in eV
-E_grid = np.arange(-500,50,0.01) # energy grid to evaluate the DOS over
+E_grid = np.arange(-50,50,0.01) # energy grid to evaluate the DOS over
 sigma=0.1 # broadening parameter
 
 cd_core_dos,cd_shell_dos,se_dos,s_dos,lig_dos \

@@ -2,6 +2,7 @@ import numpy as np
 import sys
 from matplotlib import pyplot as plt
 from qd_helper import *
+from geom_helper import *
 
 '''
 Script to build a core-shell QD from a slab of bulk crystal material.
@@ -18,8 +19,8 @@ Please specify a radius and method below.
 ############
 
 input_file = sys.argv[1] # xyz file of crystal slab
-rad = 9   # core radius, in Angstroms
-rad2 = 13.3 #15.1  # shell radius, in Angstroms
+rad = 8   # core radius, in Angstroms
+rad2 = 12 #15.1  # shell radius, in Angstroms
 save=False
 save=True
 n_ctr =6  # specifies method of choosing the center -- 6 is middle of cage,
@@ -164,7 +165,7 @@ def get_coreonly(xyz,atoms,radius,n_ctr):
                 ctr = ctr0 + np.random.random_sample((1,3))
             else:
                 radius = radius + 0.05
-
+                print('new radius '+radius)
         nit += 1
 
     if nit == it_max:
@@ -282,30 +283,36 @@ def avg_radius(xyz,atoms,atom1,atom2,cutoff=3.0):
     return avg_dist_surf,std_dist_surf, max_dist_surf, min_dist_surf
 
 
-
+# read in big lattice
 xyzcoords,atom_names = read_input_xyz(input_file)
+# get core/shell dot
 coreshell_ind,core_ind,shell_ind = get_coreshell(xyzcoords,atom_names,rad,rad2,n_ctr)
+# indices of cd, se
+coreshell_ind_cd = np.logical_and(coreshell_ind,atom_names=='Cd')
+coreshell_ind_se = np.logical_and(coreshell_ind,atom_names=="Se")
 
 Ncore=np.count_nonzero(core_ind)
 Nshell = np.count_nonzero(shell_ind)
 Ntot = np.count_nonzero(coreshell_ind)
 
 print('')
-print('DOT INFO:')
+print('DOT INFO, before modification:')
 print(Ncore," core atoms")
 print(Nshell,"shell atoms")
 print(Ntot, 'total atoms')
 
-
-# REPLACE SHELL SE'S WITH S
-shell_se_ind = np.logical_and(atom_names == 'Se', shell_ind)
-atom_names[shell_se_ind] = 'S'
-
-# GETTING DATA FOR CORE, SHELL, BOTH
-atom_names_coreshell = atom_names[coreshell_ind]
 xyz_coreshell = xyzcoords[coreshell_ind]
 ctr_coreshell = np.mean(xyz_coreshell,axis=0)
 xyz_coreshell = xyz_coreshell - ctr_coreshell # center at total dot center
+# GETTING DATA FOR CORE, SHELL, BOTH
+atom_names_coreshell = atom_names[coreshell_ind]
+
+# REPLACE SHELL SE'S WITH S
+shell_se_ind = np.logical_and(atom_names == 'Se', shell_ind)
+shell_cd_ind = np.logical_and(atom_names=='Cd', shell_ind)
+print('Total number of Cd in shell:',np.count_nonzero(shell_cd_ind) )
+# atom_names[shell_se_ind] = 'S'
+atom_names_coreshell = atom_names[coreshell_ind]
 
 atom_names_coreonly = atom_names[core_ind]
 xyz_coreonly = xyzcoords[core_ind] - ctr_coreshell # center at total dot center
@@ -313,9 +320,106 @@ xyz_coreonly = xyzcoords[core_ind] - ctr_coreshell # center at total dot center
 atom_names_shellonly = atom_names[shell_ind]
 xyz_shellonly = xyzcoords[shell_ind] - ctr_coreshell # center at total dot center
 
+# get undercoordinated S indices
+underc_cd_ind,underc_se_ind=get_underc_index(xyz_coreshell,atom_names_coreshell=='Cd',atom_names_coreshell=='Se',atom_names_coreshell=='N',atom_names_coreshell=='N',3.0,4)
+underc_se_ind_lg1 = get_underc_ind_large(atom_names_coreshell=='Se',underc_se_ind)
+underc_se_ind_lg = get_underc_ind_large(coreshell_ind,underc_se_ind_lg1)
+# find Cd atoms attached to undercoordinated S
+all_dists,cdse_dists,cdlig_dists,cdselig_dists,secd_dists = get_dists(xyzcoords,atom_names=='Cd',atom_names=="Se",atom_names=='N')
+dist_ucse_tocd=dist_atom12(all_dists, underc_se_ind_lg,atom_names=='Cd') # distances of UC Se atoms to all Cd's
+cd_nn_ind = dist_ucse_tocd<3.0 # find Cd that are NN to UC Se
+test=np.any(cd_nn_ind,axis=0)  # flatten, and remove duplicates. smaller than cd_nn_ind b/c some Cd are nn of two Se
+cd_nn_ind1 = get_underc_ind_large(atom_names=='Cd',test)
+print("Number of Cd that are NN to UC S:", np.count_nonzero(cd_nn_ind1))
+shell_xor_cd_ind = np.logical_xor(cd_nn_ind1,coreshell_ind_cd ) # indices that are either extra or in dot but not both
+extra_cd_ind =np.logical_and(shell_xor_cd_ind,cd_nn_ind1) # indices of *only* extra Cd
+print('Number of extra Cd:', np.count_nonzero(extra_cd_ind))
+extra_cd_name = atom_names[extra_cd_ind] # just extra
+extra_cd_xyz = xyzcoords[extra_cd_ind]
+extra_cd_xyz = extra_cd_xyz - ctr_coreshell
 
+# xyz_cscd=xyzcoords[extra_cd_ind]
+# atomname_cscd=np.array(atomname_extracd)
+ind_extracd = extra_cd_ind
+ind_cscd = np.logical_or(extra_cd_ind,coreshell_ind) # indices of core/shell atoms + extra Cd
+xyz_cscd=xyzcoords[ind_cscd]
+atomname_cscd=atom_names[ind_cscd]
+atom_names_cscd=atomname_cscd
+
+print('Number of Cd that are NN to UC S:', np.count_nonzero(ind_extracd))
+
+# remove Cd with 1 NN
+underc_cd_ind2,underc_se_ind2=get_underc_index(xyz_cscd,atom_names_cscd=='Cd',atom_names_cscd=='Se',atom_names_cscd=='N',atom_names_cscd=='N',3.0,2)
+# print(underc_cd_ind2.shape)
+underc_cd_ind2_intermediate = get_underc_ind_large(atom_names_cscd=='Cd',underc_cd_ind2)
+# print(underc_cd_ind2_intermediate.shape)
+underc_cd_ind2_lg = get_underc_ind_large(ind_cscd,underc_cd_ind2_intermediate)
+print('Number of 1C Cd to trim:',np.count_nonzero(underc_cd_ind2_lg))
+print(ind_cscd[np.where(underc_cd_ind2_lg)])
+ind_cscd[np.where(underc_cd_ind2_lg)]=False # directly modify the extra cd + c/s indices ( don't modify c/s because 1C extras aren't in there anyway)
+ind_extracd[np.where(underc_cd_ind2_lg)]=False
+atom_names_cscd_trim = atom_names[ind_cscd]
+xyz_cscd_trim = xyzcoords[ind_cscd]
+print('Number of extra Cd after trimming 1C Cd:',np.count_nonzero(ind_extracd))
+print('Total number of Cd after trimming 1C Cd:',np.count_nonzero(atom_names_cscd_trim=='Cd'))
+
+
+# remove 2C S leftover
+print('Total number of S in shell:', np.count_nonzero(shell_se_ind))
+underc_cd_ind3,underc_se_ind3=get_underc_index(xyz_cscd_trim,atom_names_cscd_trim=='Cd',atom_names_cscd_trim=='Se',atom_names_cscd_trim=='N',atom_names_cscd_trim=='N',3.0,3)
+# print(underc_cd_ind2.shape)
+underc_se_ind3_intermediate = get_underc_ind_large(atom_names_cscd_trim=='Se',underc_se_ind3)
+# print(underc_cd_ind2_intermediate.shape)
+underc_se_ind3_lg = get_underc_ind_large(ind_cscd,underc_se_ind3_intermediate)
+print('Number of 2C S to trim:',np.count_nonzero(underc_se_ind3_lg))
+print(ind_cscd[np.where(underc_se_ind3_lg)])
+ind_cscd[np.where(underc_se_ind3_lg)]=False
+coreshell_ind[np.where(underc_se_ind3_lg)]=False
+shell_se_ind[np.where(underc_se_ind3_lg)]=False
+coreshell_ind_se[np.where(underc_se_ind3_lg)]=False
+
+atom_names_cscd_trim2 = atom_names[ind_cscd]
+xyz_cscd_trim2 = xyzcoords[ind_cscd]
+# ind_extracd[np.where(underc_se_ind3_lg)]=False
+# print('Number of extra Se after trimming 2C Se:',np.count_nonzero(ind_extracd))
+print('Total number of Se after trimming 2C S:',np.count_nonzero(shell_se_ind))
+
+
+# get S coordinated to UC Cd
+# TO DO: need to find a way to replace bridging S first, then add terminal...as is it's not charge balanced
+
+underc_cd_ind4,underc_se_ind4=get_underc_index(xyz_cscd_trim2,atom_names_cscd_trim2=='Cd',atom_names_cscd_trim2=='Se',atom_names_cscd_trim2=='N',atom_names_cscd_trim2=='N',3.0,3)
+underc_cd_ind_lg4_temp = get_underc_ind_large(atom_names_cscd_trim2=='Cd',underc_cd_ind4)
+underc_cd_ind_lg4 = get_underc_ind_large(ind_cscd,underc_cd_ind_lg4_temp)
+# find S atoms attached to undercoordinated Cd
+# all_dists,cdse_dists,cdlig_dists,cdselig_dists,secd_dists = get_dists(xyzcoords,atom_names=='Cd',atom_names=="Se",atom_names=='N')
+dist_uccd_tos=dist_atom12(all_dists, underc_cd_ind_lg4,atom_names=='Se')
+s_nn_ind = dist_uccd_tos<3.0
+test2=np.any(s_nn_ind,axis=0) # smaller than cd_nn_ind b/c some Cd are nn of two Se
+s_nn_ind1 = get_underc_ind_large(atom_names=='Se',test2)
+print("Number of S that are NN to UC Cd:", np.count_nonzero(s_nn_ind1))
+shell_xor_s_ind = np.logical_xor(s_nn_ind1,coreshell_ind_se)
+extra_se_ind =np.logical_and(shell_xor_s_ind,s_nn_ind1) # indices for extra Se ONLY, excludes NN that were already in shell
+print('Number of extra S:', np.count_nonzero(extra_se_ind))
+extra_s_name = atom_names[extra_se_ind] # just extra
+extra_s_xyz = xyzcoords[extra_se_ind]
+extra_s_xyz = extra_s_xyz - ctr_coreshell
+ind_cscdcl = np.logical_or(extra_se_ind,ind_cscd)
+#replace UC S with Cl
+atom_names[extra_se_ind]='Cl'
+
+atom_names[shell_se_ind] = 'S'
+atom_names_coreshell=atom_names[coreshell_ind]
+
+
+
+atom_names_all = atom_names[ind_cscdcl]
+xyz_all = xyzcoords[ind_cscdcl]
+
+
+# atom_names_all[shell_se_ind]= 'S'
 # CALCULATING AVG RADIUS
-dot_r,dot_std,dot_max,dot_min=avg_radius(xyz_coreshell,atom_names_coreshell,'Cd','S')
+dot_r,dot_std,dot_max,dot_min=avg_radius(xyz_all,atom_names_all,'Cd','S')
 core_r,core_std,core_max,core_min=avg_radius(xyz_coreonly,atom_names_coreonly,'Cd','Se')
 print('Core radius: ',core_r,'; requested ',rad)
 print('Core standard dev: ', core_std)
@@ -325,12 +429,12 @@ print('Dot standard dev: ', dot_std)
 comment = 'r1 = {}A, r2 = {}A, r_c = {}A, std_c = {}, r_tot = {}A, std_tot = {}'.format(rad,rad2,np.around(core_r,3),np.around(core_std,3),np.around(dot_r,3),np.around(dot_std,3))
 
 # CHECKING FOR UNPASSIVATED CORE ATOMS
-all_dists,cd_se_dists,garb,garb2,se_cd_dists = get_dists(xyz_coreshell,atom_names_coreshell=='Cd',atom_names_coreshell != 'Cd')
-all_nn,cd_nn,se_nn=get_nn(cd_se_dists,se_cd_dists,atom_names_coreshell=='Cd',atom_names_coreshell!='Cd',3.0,len(atom_names_coreshell))
+all_dists,cd_se_dists,garb,garb2,se_cd_dists = get_dists(xyz_all,atom_names_all=='Cd',atom_names_all != 'Cd')
+all_nn,cd_nn,se_nn=get_nn(cd_se_dists,se_cd_dists,atom_names_all=='Cd',atom_names_all!='Cd',3.0,len(atom_names_all))
 
 core_cd = np.logical_and(core_ind,atom_names == 'Cd') # boolean indices for core cd's, shape of crystal slab
-core_cd_dot=core_cd[coreshell_ind] # boolean indices for core cd's, shape of core-shell dot
-core_se_dot = atom_names_coreshell == 'Se' # boolean indices for core se's (easier b/c shell is S)
+core_cd_dot=core_cd[ind_cscdcl] # boolean indices for core cd's, shape of core-shell dot
+core_se_dot = atom_names_all == 'Se' # boolean indices for core se's (easier b/c shell is S)
 
 core_se_nn = all_nn[core_se_dot]
 core_cd_nn = all_nn[core_cd_dot]
@@ -343,8 +447,13 @@ if unpass_core_cd+unpass_core_se > 1:
     print(unpass_core_cd, 'unpassivated Cd')
     print(unpass_core_se, 'unpassivated Se')
 
+
+
+
 if save:
     # MAKING XYZ
     write_xyz('{}_{}_core_only_{}.xyz'.format(rad,rad2,end),atom_names_coreonly,xyz_coreonly,comment)
     write_xyz('{}_{}_shell_only_{}.xyz'.format(rad,rad2,end),atom_names_shellonly,xyz_shellonly,comment)
     write_xyz('{}_{}_coreshell_{}.xyz'.format(rad,rad2,end),atom_names_coreshell,xyz_coreshell,comment)
+    # write_xyz('{}_{}_extracd_{}.xyz'.format(rad,rad2,end),extra_cd_name,extra_cd_xyz,comment)
+    write_xyz('{}_{}_all_{}.xyz'.format(rad,rad2,end),atom_names_all,xyz_all,comment)

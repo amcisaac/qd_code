@@ -79,8 +79,8 @@ print('clash cutoff:',cutoff2)
 nncutoff = 3  # number of nearest neighbors to be considered "unpassivated" (incl. ligands)
 lig_atom= False
 lig_atom_2 = False
-lig_atom = "F" # atom that attaches to the Cd in the ligand
-lig_atom_2='H'
+lig_atom = "N" # atom that attaches to the Cd in the ligand
+# lig_atom_2='H'
 
 QD_file_start=sys.argv[1] # QD crystal xyz file
 core_xyz=sys.argv[2]
@@ -186,17 +186,17 @@ n_cdshell = float(np.count_nonzero(ind_shell_Cd))
 
 # np.savetxt('hist.csv',cdse_dists.flatten())
 
-nn_histogram(QD_xyz_start,ind_Cd,ind_Cd,label1='crystal (core/shell)',xyz2=QD_xyz_end,label2='optimized (core/shell)')
-# plt.savefig(cd_cd_dist.pdf)
-plt.ylim(0,20)
-plt.title('Cd-Cd distance')
-plt.savefig('cd_cd_dist.pdf')
-
-nn_histogram(QD_xyz_start,ind_chal,ind_chal,label1='crystal (core/shell)',xyz2=QD_xyz_end,label2='optimized (core/shell)')
-# plt.savefig(s_s)
-plt.ylim(0,20)
-plt.title('Chal-Chal distance')
-plt.savefig('chal_chal_dist.pdf')
+# nn_histogram(QD_xyz_start,ind_Cd,ind_Cd,label1='crystal (core/shell)',xyz2=QD_xyz_end,label2='optimized (core/shell)')
+# # plt.savefig(cd_cd_dist.pdf)
+# plt.ylim(0,20)
+# plt.title('Cd-Cd distance')
+# plt.savefig('cd_cd_dist.pdf')
+#
+# nn_histogram(QD_xyz_start,ind_chal,ind_chal,label1='crystal (core/shell)',xyz2=QD_xyz_end,label2='optimized (core/shell)')
+# # plt.savefig(s_s)
+# plt.ylim(0,20)
+# plt.title('Chal-Chal distance')
+# plt.savefig('chal_chal_dist.pdf')
 
 # plt.show()
 
@@ -286,6 +286,9 @@ if save_flag:
     np.save('sshell_clash_ind_3p0',get_underc_ind_large(ind_S,s_shell_bond_ind))
 
     # print(np.count_nonzero(lig_underc_ind))
+
+    # write_underc_xyz(QD_xyz_start,atom_name_end,ind_shell_Cd,ind_S,cdshell_underc_ind,sshell_underc_ind,'underc_'+str(cutoff)+'_startgeom','Undercoordinated atoms from '+QD_file_end + 'in starting geom cutoff '+str(cutoff))
+    # write_underc_xyz(QD_xyz_start,atom_name_end,ind_shell_Cd,ind_S,cd_shell_bond_ind,s_shell_bond_ind,'bonded_'+str(cutoff2)+'_startgeom','Clashing atoms from '+QD_file_end + 'in starting geom cutoff '+str(cutoff2))
 
     write_underc_xyz(QD_xyz_end,atom_name_end,ind_shell_Cd,ind_S,cdshell_underc_ind,sshell_underc_ind,'underc_'+str(cutoff),'Undercoordinated atoms from '+QD_file_end + ' cutoff '+str(cutoff))
     write_underc_xyz(QD_xyz_end,atom_name_end,ind_shell_Cd,ind_S,cd_shell_bond_ind,s_shell_bond_ind,'bonded_'+str(cutoff2),'Clashing atoms from '+QD_file_end + ' cutoff '+str(cutoff2))
