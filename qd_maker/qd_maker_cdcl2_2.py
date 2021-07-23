@@ -3,6 +3,7 @@ import sys
 from matplotlib import pyplot as plt
 from qd_helper import *
 from geom_helper import *
+from copy import deepcopy
 
 '''
 Script to build a core-shell QD from a slab of bulk crystal material.
@@ -20,7 +21,7 @@ Please specify a radius and method below.
 
 input_file = sys.argv[1] # xyz file of crystal slab
 rad = 8   # core radius, in Angstroms
-rad2 = 13.3 #15.1  # shell radius, in Angstroms
+rad2 = 12 #15.1  # shell radius, in Angstroms
 save=False
 save=True
 n_ctr =6  # specifies method of choosing the center -- 6 is middle of cage,
@@ -283,6 +284,53 @@ def avg_radius(xyz,atoms,atom1,atom2,cutoff=3.0):
     return avg_dist_surf,std_dist_surf, max_dist_surf, min_dist_surf
 
 
+def trim_UC(xyz,ind1,ind2,ind_lig,bond_cutoff,nn_cutoff,lg_ind1,lg_ind2,trim_inds):
+    # remove Cd with 1 NN
+    underc_1_ind,underc_2_ind=get_underc_index(xyz,ind1,ind2,ind_lig,ind_lig,bond_cutoff,nn_cutoff)
+    underc_2_ind_tmp = get_underc_ind_large(lg_ind1,underc_2_ind)
+    underc_2_ind2_lg = get_underc_ind_large(lg_ind2,underc_2_ind_tmp)
+    trim_inds_2 = []
+    for ind in trim_inds:
+        ind_x = deepcopy(ind)
+        ind_x[np.where(underc_2_ind2_lg)]=False
+        trim_inds_2.append(ind_x)
+    return trim_inds_2
+
+# get undercoordinated S indices
+def get_underc_nn(xyz,ind_1,ind_2,ind_lig,bond_cutoff,nn_cutoff,lg_ind1,lg_ind2,all_dists,verbose=''):
+    # get undercoordinated atom indices
+    underc_1_ind,underc_2_ind=get_underc_index(xyz,ind_1,ind_2,ind_lig,ind_lig,bond_cutoff,nn_cutoff) # make cd/se 1/2 and tehn can be general?
+    # only want 2; broadcast ind for atom 2 to full size
+    underc_2_ind_lg1 = get_underc_ind_large(ind_2,underc_2_ind)
+    underc_2_ind_lg = get_underc_ind_large(lg_ind1,underc_2_ind_lg1)
+    if verbose: print('Number of undercoordinated {}: {}'.format(verbose,np.count_nonzero(underc_2_ind_lg)))
+    # calculate distances from UC atom 2 to atom 1
+    dist_uc2_to1=dist_atom12(all_dists, underc_2_ind_lg,lg_ind2) # distances of UC Se atoms to all Cd's. how to feed in Cd
+    # identify atom 1 that is NN to UC atom 2. size (N_UC2,N_atom1). N_atom1 is from lg_ind2
+    atom1_nn_ind_tmp = dist_uc2_to1<3.0 # find Cd that are NN to UC Se
+    # flatten atom1_nn_ind_tmp, and consolidate duplicate atom1's that are NN to two UC atom2s
+    atom1_nn_ind_tmp2=np.any(atom1_nn_ind_tmp,axis=0)  # flatten, and remove duplicates. smaller than cd_nn_ind b/c some Cd are nn of two Se
+    atom1_nn_ind = get_underc_ind_large(lg_ind2,atom1_nn_ind_tmp2)
+    return atom1_nn_ind
+
+# Spherical cor
+def spher_cor(cor):
+    r=np.sqrt(np.sum(np.power(cor,2)))
+    theta=np.arctan2(cor[1],cor[0])
+    phi=np.arccos(cor[2]/r)
+    xyz_sph=np.array([r, theta, phi])
+    return xyz_sph
+
+# Cartezian coordinates
+
+def cartesian_cor(r,thetha,phi):
+    x=r*np.sin(phi)*np.cos(thetha)
+    y=r*np.sin(phi)*np.sin(thetha)
+    z=r*np.cos(phi)
+    xyz_vec=np.array([x, y, z])
+    return xyz_vec
+
+
 # read in big lattice
 xyzcoords,atom_names = read_input_xyz(input_file)
 # get core/shell dot
@@ -306,176 +354,121 @@ ctr_coreshell = np.mean(xyz_coreshell,axis=0)
 xyz_coreshell = xyz_coreshell - ctr_coreshell # center at total dot center
 # GETTING DATA FOR CORE, SHELL, BOTH
 atom_names_coreshell = atom_names[coreshell_ind]
-
-# REPLACE SHELL SE'S WITH S
 shell_se_ind = np.logical_and(atom_names == 'Se', shell_ind)
 shell_cd_ind = np.logical_and(atom_names=='Cd', shell_ind)
 print('Total number of Cd in shell:',np.count_nonzero(shell_cd_ind) )
-# atom_names[shell_se_ind] = 'S'
-atom_names_coreshell = atom_names[coreshell_ind]
 
+atom_names_coreshell = atom_names[coreshell_ind]
 atom_names_coreonly = atom_names[core_ind]
 xyz_coreonly = xyzcoords[core_ind] - ctr_coreshell # center at total dot center
-
 atom_names_shellonly = atom_names[shell_ind]
 xyz_shellonly = xyzcoords[shell_ind] - ctr_coreshell # center at total dot center
 
-
-
-underc_cd_ind,underc_se_ind=get_underc_index(xyz_coreshell,atom_names_coreshell=='Cd',atom_names_coreshell=='Se',atom_names_coreshell=='N',atom_names_coreshell=='N',3.0,4)
-underc_se_ind_lg1 = get_underc_ind_large(atom_names_coreshell=='Se',underc_se_ind)
-underc_se_ind_lg = get_underc_ind_large(coreshell_ind,underc_se_ind_lg1)
+#### ADDING EXCESS CDCL
 # find Cd atoms attached to undercoordinated S
 all_dists,cdse_dists,cdlig_dists,cdselig_dists,secd_dists = get_dists(xyzcoords,atom_names=='Cd',atom_names=="Se",atom_names=='N')
-dist_ucse_tocd=dist_atom12(all_dists, underc_se_ind_lg,atom_names=='Cd') # distances of UC Se atoms to all Cd's
-cd_nn_ind = dist_ucse_tocd<3.0 # find Cd that are NN to UC Se
-test=np.any(cd_nn_ind,axis=0)  # flatten, and remove duplicates. smaller than cd_nn_ind b/c some Cd are nn of two Se
-cd_nn_ind1 = get_underc_ind_large(atom_names=='Cd',test)
+cd_nn_ind1 = get_underc_nn(xyz_coreshell,atom_names_coreshell=='Cd',atom_names_coreshell=='Se',atom_names_coreshell=='N',3.0,4,coreshell_ind,atom_names=='Cd',all_dists,verbose='S')
 print("Number of Cd that are NN to UC S:", np.count_nonzero(cd_nn_ind1))
 shell_xor_cd_ind = np.logical_xor(cd_nn_ind1,coreshell_ind_cd ) # indices that are either extra or in dot but not both
-extra_cd_ind =np.logical_and(shell_xor_cd_ind,cd_nn_ind1) # indices of *only* extra Cd
-print('Number of extra Cd:', np.count_nonzero(extra_cd_ind))
-extra_cd_name = atom_names[extra_cd_ind] # just extra
-extra_cd_xyz = xyzcoords[extra_cd_ind]
-extra_cd_xyz = extra_cd_xyz - ctr_coreshell
+ind_extracd =np.logical_and(shell_xor_cd_ind,cd_nn_ind1) # indices of *only* extra Cd
+print('Number of extra Cd that are NN to UC S:', np.count_nonzero(ind_extracd))
 
-# xyz_cscd=xyzcoords[extra_cd_ind]
-# atomname_cscd=np.array(atomname_extracd)
-ind_extracd = extra_cd_ind
-ind_cscd = np.logical_or(extra_cd_ind,coreshell_ind) # indices of core/shell atoms + extra Cd
+ind_cscd = np.logical_or(ind_extracd,coreshell_ind) # indices of core/shell atoms + extra Cd
 xyz_cscd=xyzcoords[ind_cscd]
 atomname_cscd=atom_names[ind_cscd]
 atom_names_cscd=atomname_cscd
 
-print('Number of Cd that are NN to UC S:', np.count_nonzero(ind_extracd))
-
-# remove Cd with 1 NN
-underc_cd_ind2,underc_se_ind2=get_underc_index(xyz_cscd,atom_names_cscd=='Cd',atom_names_cscd=='Se',atom_names_cscd=='N',atom_names_cscd=='N',3.0,2)
-# print(underc_cd_ind2.shape)
-underc_cd_ind2_intermediate = get_underc_ind_large(atom_names_cscd=='Cd',underc_cd_ind2)
-# print(underc_cd_ind2_intermediate.shape)
-underc_cd_ind2_lg = get_underc_ind_large(ind_cscd,underc_cd_ind2_intermediate)
-print('Number of 1C Cd to trim:',np.count_nonzero(underc_cd_ind2_lg))
-print(ind_cscd[np.where(underc_cd_ind2_lg)])
-ind_cscd[np.where(underc_cd_ind2_lg)]=False # directly modify the extra cd + c/s indices ( don't modify c/s because 1C extras aren't in there anyway)
-ind_extracd[np.where(underc_cd_ind2_lg)]=False
+# remove Cd with 1 NN, updates ind_cscd and ind_extracd to remove 1C
+ind_cscd,ind_extracd=trim_UC(xyz_cscd,atom_names_cscd=='Se',atom_names_cscd=='Cd',atom_names_cscd=='N',3.0,2,atom_names_cscd=='Cd',ind_cscd,[ind_cscd,ind_extracd])
 atom_names_cscd_trim = atom_names[ind_cscd]
 xyz_cscd_trim = xyzcoords[ind_cscd]
 print('Number of extra Cd after trimming 1C Cd:',np.count_nonzero(ind_extracd))
 print('Total number of Cd after trimming 1C Cd:',np.count_nonzero(atom_names_cscd_trim=='Cd'))
 
-
 # remove 2C S leftover
 print('Total number of S in shell:', np.count_nonzero(shell_se_ind))
-underc_cd_ind3,underc_se_ind3=get_underc_index(xyz_cscd_trim,atom_names_cscd_trim=='Cd',atom_names_cscd_trim=='Se',atom_names_cscd_trim=='N',atom_names_cscd_trim=='N',3.0,3)
-# print(underc_cd_ind2.shape)
-underc_se_ind3_intermediate = get_underc_ind_large(atom_names_cscd_trim=='Se',underc_se_ind3)
-# print(underc_cd_ind2_intermediate.shape)
-underc_se_ind3_lg = get_underc_ind_large(ind_cscd,underc_se_ind3_intermediate)
-print('Number of 2C S to trim:',np.count_nonzero(underc_se_ind3_lg))
-print(ind_cscd[np.where(underc_se_ind3_lg)])
-ind_cscd[np.where(underc_se_ind3_lg)]=False
-coreshell_ind[np.where(underc_se_ind3_lg)]=False
-shell_se_ind[np.where(underc_se_ind3_lg)]=False
-coreshell_ind_se[np.where(underc_se_ind3_lg)]=False
-
+ind_cscd,coreshell_ind,shell_se_ind,coreshell_ind_se=trim_UC(xyz_cscd_trim,atom_names_cscd_trim=='Cd',atom_names_cscd_trim=='Se',atom_names_cscd_trim=='N',3.0,3,atom_names_cscd_trim=='Se',ind_cscd,[ind_cscd,coreshell_ind,shell_se_ind,coreshell_ind_se])
 atom_names_cscd_trim2 = atom_names[ind_cscd]
 xyz_cscd_trim2 = xyzcoords[ind_cscd]
 ind_cd_cscd_trim2=np.logical_and(ind_cscd,atom_names=='Cd')
-# ind_extracd[np.where(underc_se_ind3_lg)]=False
-# print('Number of extra Se after trimming 2C Se:',np.count_nonzero(ind_extracd))
-print('Total number of Se after trimming 2C S:',np.count_nonzero(shell_se_ind))
+print('Total number of S after trimming 2C S:',np.count_nonzero(shell_se_ind))
 
-
-# get S coordinated to UC Cd
-# TO DO: need to find a way to replace bridging S first, then add terminal...as is it's not charge balanced
-
-underc_cd_ind4,underc_se_ind4=get_underc_index(xyz_cscd_trim2,atom_names_cscd_trim2=='Cd',atom_names_cscd_trim2=='Se',atom_names_cscd_trim2=='N',atom_names_cscd_trim2=='N',3.0,3)
-print('Number of UC Cd', np.count_nonzero(underc_cd_ind4))
-underc_cd_ind_lg4_temp = get_underc_ind_large(atom_names_cscd_trim2=='Cd',underc_cd_ind4)
-underc_cd_ind_lg4 = get_underc_ind_large(ind_cscd,underc_cd_ind_lg4_temp)
-# find S atoms attached to undercoordinated Cd
-# all_dists,cdse_dists,cdlig_dists,cdselig_dists,secd_dists = get_dists(xyzcoords,atom_names=='Cd',atom_names=="Se",atom_names=='N')
-dist_uccd_tos=dist_atom12(all_dists, underc_cd_ind_lg4,atom_names=='Se')
-s_nn_ind = dist_uccd_tos<3.0
-# print('s_nn_shape',s_nn_ind.shape)
-# print('s_nn_sum axis 0 shape',np.sum(s_nn_ind,axis=0).shape)
-# s_nn_bridge = np.sum(s_nn_ind,axis=0)==2
-# print('number bridging',np.count_nonzero(s_nn_bridge))
-test2=np.any(s_nn_ind,axis=0) # smaller than cd_nn_ind b/c some Cd are nn of two Se
-print('number of extra se', np.count_nonzero(test2))
-s_nn_ind1 = get_underc_ind_large(atom_names=='Se',test2)
+# get S coordinated to UC Cd, to replace with Cl
+s_nn_ind1 = get_underc_nn(xyz_cscd_trim2,atom_names_cscd_trim2=='Se',atom_names_cscd_trim2=='Cd',atom_names_cscd_trim2=='N',3.0,3,ind_cscd,atom_names=='Se',all_dists,verbose='Cd')
 print("Number of S that are NN to UC Cd:", np.count_nonzero(s_nn_ind1))
 shell_xor_s_ind = np.logical_xor(s_nn_ind1,coreshell_ind_se)
 extra_se_ind =np.logical_and(shell_xor_s_ind,s_nn_ind1) # indices for extra Se ONLY, excludes NN that were already in shell
-print('Number of extra S:', np.count_nonzero(extra_se_ind))
+print('Number of extra S, to convert to Cl:', np.count_nonzero(extra_se_ind))
 
-# this goes here if we aren't distinguishing between bridging and terminal
-# extra_s_name = atom_names[extra_se_ind] # just extra
-# extra_s_xyz = xyzcoords[extra_se_ind]
-# extra_s_xyz = extra_s_xyz - ctr_coreshell
-# ind_cscdcl = np.logical_or(extra_se_ind,ind_cscd)
-
-# finding bridging ligands
-dist_xse_tocd=dist_atom12(all_dists,extra_se_ind,ind_cd_cscd_trim2)
-s_nn_ind_bridge1 = dist_xse_tocd<3.0
-
-s_nn_ind_bridge = np.sum(s_nn_ind_bridge1,axis=1)==2
-s_nn_ind_term = np.logical_not(s_nn_ind_bridge)
-print('s_nn_ind_bridge shape',s_nn_ind_bridge.shape)
-print('n bridging s',np.count_nonzero(s_nn_ind_bridge))
-print('n terminal s',np.count_nonzero(s_nn_ind_term))
-print('cs cd trim shape',(atom_names_cscd_trim2=='Se').shape)
+# check charge
+charge_bal_flag = False
+cdses_charge=2*np.count_nonzero(ind_cd_cscd_trim2)-2*np.count_nonzero(coreshell_ind_se)
+cdses_charge_allcl = cdses_charge - np.count_nonzero(extra_se_ind)
+print('Overall charge of CdSe/CdS:', cdses_charge)
+print('Charge from adding all Cl-:',cdses_charge_allcl)
+if cdses_charge_allcl == 0:
+    charge_bal_flag = True # if charge balanced, stop
 
 
+if not charge_bal_flag:
+    # finding bridging ligands
+    dist_xse_tocd=dist_atom12(all_dists,extra_se_ind,ind_cd_cscd_trim2)
+    s_nn_ind_bridge1 = dist_xse_tocd<3.0
+    s_nn_ind_bridge = np.sum(s_nn_ind_bridge1,axis=1)==2
+    s_nn_ind_term = np.logical_not(s_nn_ind_bridge)
+    print('Number of bridging Cl',np.count_nonzero(s_nn_ind_bridge))
+    print('Number of terminal Cl',np.count_nonzero(s_nn_ind_term))
 
+    s_nn_ind_bridge_lg=get_underc_ind_large(extra_se_ind,s_nn_ind_bridge)
+    s_nn_ind_term_lg = get_underc_ind_large(extra_se_ind,s_nn_ind_term)
 
-s_nn_ind_bridge_lg=get_underc_ind_large(extra_se_ind,s_nn_ind_bridge)
-s_nn_ind_term_lg = get_underc_ind_large(extra_se_ind,s_nn_ind_term)
-extra_se_ind1 = s_nn_ind_bridge_lg
-# print(s_nn_ind_bridge_lg.shape)
-# print(np.count_nonzero(s_nn_ind_bridge_lg))
-# print(s_nn_ind_term_lg.shape)
-# print(np.count_nonzero(s_nn_ind_term_lg))
+    ind_cscdcl = np.logical_or(s_nn_ind_bridge_lg,ind_cscd)
 
-# put this here for bridging only
-# extra_s_name = atom_names[extra_se_ind] # just extra
-# extra_s_xyz = xyzcoords[extra_se_ind]
-# extra_s_xyz = extra_s_xyz - ctr_coreshell
-ind_cscdcl = np.logical_or(extra_se_ind1,ind_cscd)
+    # add back on terminal Cl for 2C Cd
+    # this seems to work for some, while adding half the terminal (one to each UC Cd) works for others
+    underc_cd_ind5,underc_se_ind5=get_underc_index(xyzcoords[ind_cscdcl],atom_names[ind_cscdcl]=='Cd',atom_names[ind_cscdcl]=='Se',atom_names[ind_cscdcl]=='N',atom_names[ind_cscdcl]=='N',3.0,3)
+    print('Number of UC Cd after bridging Cls', np.count_nonzero(underc_cd_ind5))
+    underc_cd_ind_lg5_temp = get_underc_ind_large(atom_names[ind_cscdcl]=='Cd',underc_cd_ind5)
+    underc_cd_ind_lg5 = get_underc_ind_large(ind_cscdcl,underc_cd_ind_lg5_temp)
+    # find S atoms attached to undercoordinated Cd
+    dist_uccd_toterms=dist_atom12(all_dists, underc_cd_ind_lg5,s_nn_ind_term_lg)
+    s_nn_ind_uc_term1 = dist_uccd_toterms<3.0
+    test5=np.any(s_nn_ind_uc_term1,axis=0)
+    print('nuber of terminal Cl to add',np.count_nonzero(test5))
+    s_nn_ind_uc_term=get_underc_ind_large(s_nn_ind_term_lg,test5)
 
-# add back on terminal Cl for 2C Cd
-# this seems to work for some, while adding half the terminal (one to each UC Cd) works for others
-underc_cd_ind5,underc_se_ind5=get_underc_index(xyzcoords[ind_cscdcl],atom_names[ind_cscdcl]=='Cd',atom_names[ind_cscdcl]=='Se',atom_names[ind_cscdcl]=='N',atom_names[ind_cscdcl]=='N',3.0,3)
-print('Number of UC Cd after bridging Cls', np.count_nonzero(underc_cd_ind5))
-underc_cd_ind_lg5_temp = get_underc_ind_large(atom_names[ind_cscdcl]=='Cd',underc_cd_ind5)
-underc_cd_ind_lg5 = get_underc_ind_large(ind_cscdcl,underc_cd_ind_lg5_temp)
-# find S atoms attached to undercoordinated Cd
-# all_dists,cdse_dists,cdlig_dists,cdselig_dists,secd_dists = get_dists(xyzcoords,atom_names=='Cd',atom_names=="Se",atom_names=='N')
-dist_uccd_toterms=dist_atom12(all_dists, underc_cd_ind_lg5,s_nn_ind_term_lg)
-s_nn_ind_uc_term1 = dist_uccd_toterms<3.0
-test5=np.any(s_nn_ind_uc_term1,axis=0)
-print('nuber of terminal Cl to add',np.count_nonzero(test5))
-s_nn_ind_uc_term=get_underc_ind_large(s_nn_ind_term_lg,test5)
+    # check charge again
+    cdses_charge_bridge_terminalcl = cdses_charge - np.count_nonzero(s_nn_ind_bridge_lg) - np.count_nonzero(s_nn_ind_uc_term)
+    cdses_charge_bridge_halftermcl = cdses_charge - np.count_nonzero(s_nn_ind_bridge_lg) - np.count_nonzero(s_nn_ind_uc_term)/2.0
+    print('Overall charge of CdSe/CdS:', cdses_charge)
+    print('Charge from adding bridging Cl and 2 terminal to UC Cd:',cdses_charge_bridge_terminalcl)
+    print('Charge from adding bridging Cl and 1 terminal to UC Cd:',cdses_charge_bridge_halftermcl)
 
-extra_se_ind = np.logical_or(s_nn_ind_uc_term,s_nn_ind_bridge_lg)
+    if cdses_charge_bridge_terminalcl==0: # if charge balanced by adding 2 term Cl, great
+        charge_bal_flag=True
+        extra_se_ind = np.logical_or(s_nn_ind_uc_term,s_nn_ind_bridge_lg)
+    elif cdses_charge_bridge_halftermcl==0: # if charge balanced by only 1 term Cl, add only bridging, add term later
+        extra_se_ind = s_nn_ind_bridge_lg
+    else:
+        print('WARNING!!! Not charge balanced!!!!!')
+
 extra_s_name = atom_names[extra_se_ind] # just extra
 extra_s_xyz = xyzcoords[extra_se_ind]
 extra_s_xyz = extra_s_xyz - ctr_coreshell
+
 ind_cscdcl = np.logical_or(extra_se_ind,ind_cscd)
 
 #replace UC S with Cl
 atom_names[extra_se_ind]='Cl'
-
 atom_names[shell_se_ind] = 'S'
 atom_names_coreshell=atom_names[coreshell_ind]
 
-
-
-
 atom_names_all = atom_names[ind_cscdcl]
 xyz_all = xyzcoords[ind_cscdcl]
+xyz_all_ctr = np.mean(xyz_all,axis=0)
+xyz_all = xyz_all-xyz_all_ctr
 
+# xyz_uc_c
 
 # atom_names_all[shell_se_ind]= 'S'
 # CALCULATING AVG RADIUS
@@ -507,13 +500,33 @@ if unpass_core_cd+unpass_core_se > 1:
     print(unpass_core_cd, 'unpassivated Cd')
     print(unpass_core_se, 'unpassivated Se')
 
+Cl_Cd_dist = 2.68 # placed at Cd-Se bond length
 
+if not charge_bal_flag and cdses_charge_bridge_halftermcl==0:
+    xyz_uc_cd = xyzcoords[underc_cd_ind_lg5]-xyz_all_ctr
+    lig_name = []
+    lig_xyz = []
+    for uc_cd_xyz in xyz_uc_cd:
+        lig_name.append('Cl')
 
+        xyz_sph_cd = spher_cor(uc_cd_xyz)
+        xyz_sph_cl = np.array([xyz_sph_cd[0]+Cl_Cd_dist, xyz_sph_cd[1], xyz_sph_cd[2]])
+        xyz_cl = cartesian_cor(xyz_sph_cl[0],xyz_sph_cl[1],xyz_sph_cl[2])
+
+        lig_xyz.append(xyz_cl)
+    lig_xyz = np.array(lig_xyz)
+    lig_name = np.array(lig_name)
+
+    xyz_all = np.concatenate((xyz_all,lig_xyz),axis=0)
+    atom_names_all = np.concatenate((atom_names_all,lig_name),axis=0)
+
+print('xyz shape',xyz_all.shape)
+print('atom name shape',atom_names_all.shape)
 
 if save:
     # MAKING XYZ
-    write_xyz('{}_{}_core_only_{}.xyz'.format(rad,rad2,end),atom_names_coreonly,xyz_coreonly,comment)
-    write_xyz('{}_{}_shell_only_{}.xyz'.format(rad,rad2,end),atom_names_shellonly,xyz_shellonly,comment)
-    write_xyz('{}_{}_coreshell_{}.xyz'.format(rad,rad2,end),atom_names_coreshell,xyz_coreshell,comment)
+    write_xyz('{}_{}_core_only_{}_2.xyz'.format(rad,rad2,end),atom_names_coreonly,xyz_coreonly,comment)
+    write_xyz('{}_{}_shell_only_{}_2.xyz'.format(rad,rad2,end),atom_names_shellonly,xyz_shellonly,comment)
+    write_xyz('{}_{}_coreshell_{}_2.xyz'.format(rad,rad2,end),atom_names_coreshell,xyz_coreshell,comment)
     # write_xyz('{}_{}_extracd_{}.xyz'.format(rad,rad2,end),extra_cd_name,extra_cd_xyz,comment)
-    write_xyz('{}_{}_all_{}.xyz'.format(rad,rad2,end),atom_names_all,xyz_all,comment)
+    write_xyz('{}_{}_all_{}_2.xyz'.format(rad,rad2,end),atom_names_all,xyz_all,comment)
