@@ -20,7 +20,7 @@ Please specify a radius and method below.
 
 input_file = sys.argv[1] # xyz file of crystal slab
 rad = 8   # core radius, in Angstroms
-rad2 = 12 #15.1  # shell radius, in Angstroms
+rad2 = 13.3 #15.1  # shell radius, in Angstroms
 save=False
 save=True
 n_ctr =6  # specifies method of choosing the center -- 6 is middle of cage,
@@ -320,7 +320,8 @@ xyz_coreonly = xyzcoords[core_ind] - ctr_coreshell # center at total dot center
 atom_names_shellonly = atom_names[shell_ind]
 xyz_shellonly = xyzcoords[shell_ind] - ctr_coreshell # center at total dot center
 
-# get undercoordinated S indices
+
+
 underc_cd_ind,underc_se_ind=get_underc_index(xyz_coreshell,atom_names_coreshell=='Cd',atom_names_coreshell=='Se',atom_names_coreshell=='N',atom_names_coreshell=='N',3.0,4)
 underc_se_ind_lg1 = get_underc_ind_large(atom_names_coreshell=='Se',underc_se_ind)
 underc_se_ind_lg = get_underc_ind_large(coreshell_ind,underc_se_ind_lg1)
@@ -380,6 +381,7 @@ coreshell_ind_se[np.where(underc_se_ind3_lg)]=False
 
 atom_names_cscd_trim2 = atom_names[ind_cscd]
 xyz_cscd_trim2 = xyzcoords[ind_cscd]
+ind_cd_cscd_trim2=np.logical_and(ind_cscd,atom_names=='Cd')
 # ind_extracd[np.where(underc_se_ind3_lg)]=False
 # print('Number of extra Se after trimming 2C Se:',np.count_nonzero(ind_extracd))
 print('Total number of Se after trimming 2C S:',np.count_nonzero(shell_se_ind))
@@ -389,27 +391,85 @@ print('Total number of Se after trimming 2C S:',np.count_nonzero(shell_se_ind))
 # TO DO: need to find a way to replace bridging S first, then add terminal...as is it's not charge balanced
 
 underc_cd_ind4,underc_se_ind4=get_underc_index(xyz_cscd_trim2,atom_names_cscd_trim2=='Cd',atom_names_cscd_trim2=='Se',atom_names_cscd_trim2=='N',atom_names_cscd_trim2=='N',3.0,3)
+print('Number of UC Cd', np.count_nonzero(underc_cd_ind4))
 underc_cd_ind_lg4_temp = get_underc_ind_large(atom_names_cscd_trim2=='Cd',underc_cd_ind4)
 underc_cd_ind_lg4 = get_underc_ind_large(ind_cscd,underc_cd_ind_lg4_temp)
 # find S atoms attached to undercoordinated Cd
 # all_dists,cdse_dists,cdlig_dists,cdselig_dists,secd_dists = get_dists(xyzcoords,atom_names=='Cd',atom_names=="Se",atom_names=='N')
 dist_uccd_tos=dist_atom12(all_dists, underc_cd_ind_lg4,atom_names=='Se')
 s_nn_ind = dist_uccd_tos<3.0
+# print('s_nn_shape',s_nn_ind.shape)
+# print('s_nn_sum axis 0 shape',np.sum(s_nn_ind,axis=0).shape)
+# s_nn_bridge = np.sum(s_nn_ind,axis=0)==2
+# print('number bridging',np.count_nonzero(s_nn_bridge))
 test2=np.any(s_nn_ind,axis=0) # smaller than cd_nn_ind b/c some Cd are nn of two Se
+print('number of extra se', np.count_nonzero(test2))
 s_nn_ind1 = get_underc_ind_large(atom_names=='Se',test2)
 print("Number of S that are NN to UC Cd:", np.count_nonzero(s_nn_ind1))
 shell_xor_s_ind = np.logical_xor(s_nn_ind1,coreshell_ind_se)
 extra_se_ind =np.logical_and(shell_xor_s_ind,s_nn_ind1) # indices for extra Se ONLY, excludes NN that were already in shell
 print('Number of extra S:', np.count_nonzero(extra_se_ind))
+
+# this goes here if we aren't distinguishing between bridging and terminal
+# extra_s_name = atom_names[extra_se_ind] # just extra
+# extra_s_xyz = xyzcoords[extra_se_ind]
+# extra_s_xyz = extra_s_xyz - ctr_coreshell
+# ind_cscdcl = np.logical_or(extra_se_ind,ind_cscd)
+
+# finding bridging ligands
+dist_xse_tocd=dist_atom12(all_dists,extra_se_ind,ind_cd_cscd_trim2)
+s_nn_ind_bridge1 = dist_xse_tocd<3.0
+
+s_nn_ind_bridge = np.sum(s_nn_ind_bridge1,axis=1)==2
+s_nn_ind_term = np.logical_not(s_nn_ind_bridge)
+print('s_nn_ind_bridge shape',s_nn_ind_bridge.shape)
+print('n bridging s',np.count_nonzero(s_nn_ind_bridge))
+print('n terminal s',np.count_nonzero(s_nn_ind_term))
+print('cs cd trim shape',(atom_names_cscd_trim2=='Se').shape)
+
+
+
+
+s_nn_ind_bridge_lg=get_underc_ind_large(extra_se_ind,s_nn_ind_bridge)
+s_nn_ind_term_lg = get_underc_ind_large(extra_se_ind,s_nn_ind_term)
+extra_se_ind1 = s_nn_ind_bridge_lg
+# print(s_nn_ind_bridge_lg.shape)
+# print(np.count_nonzero(s_nn_ind_bridge_lg))
+# print(s_nn_ind_term_lg.shape)
+# print(np.count_nonzero(s_nn_ind_term_lg))
+
+# put this here for bridging only
+# extra_s_name = atom_names[extra_se_ind] # just extra
+# extra_s_xyz = xyzcoords[extra_se_ind]
+# extra_s_xyz = extra_s_xyz - ctr_coreshell
+ind_cscdcl = np.logical_or(extra_se_ind1,ind_cscd)
+
+# add back on terminal Cl for 2C Cd
+# this seems to work for some, while adding half the terminal (one to each UC Cd) works for others
+underc_cd_ind5,underc_se_ind5=get_underc_index(xyzcoords[ind_cscdcl],atom_names[ind_cscdcl]=='Cd',atom_names[ind_cscdcl]=='Se',atom_names[ind_cscdcl]=='N',atom_names[ind_cscdcl]=='N',3.0,3)
+print('Number of UC Cd after bridging Cls', np.count_nonzero(underc_cd_ind5))
+underc_cd_ind_lg5_temp = get_underc_ind_large(atom_names[ind_cscdcl]=='Cd',underc_cd_ind5)
+underc_cd_ind_lg5 = get_underc_ind_large(ind_cscdcl,underc_cd_ind_lg5_temp)
+# find S atoms attached to undercoordinated Cd
+# all_dists,cdse_dists,cdlig_dists,cdselig_dists,secd_dists = get_dists(xyzcoords,atom_names=='Cd',atom_names=="Se",atom_names=='N')
+dist_uccd_toterms=dist_atom12(all_dists, underc_cd_ind_lg5,s_nn_ind_term_lg)
+s_nn_ind_uc_term1 = dist_uccd_toterms<3.0
+test5=np.any(s_nn_ind_uc_term1,axis=0)
+print('nuber of terminal Cl to add',np.count_nonzero(test5))
+s_nn_ind_uc_term=get_underc_ind_large(s_nn_ind_term_lg,test5)
+
+extra_se_ind = np.logical_or(s_nn_ind_uc_term,s_nn_ind_bridge_lg)
 extra_s_name = atom_names[extra_se_ind] # just extra
 extra_s_xyz = xyzcoords[extra_se_ind]
 extra_s_xyz = extra_s_xyz - ctr_coreshell
 ind_cscdcl = np.logical_or(extra_se_ind,ind_cscd)
+
 #replace UC S with Cl
 atom_names[extra_se_ind]='Cl'
 
 atom_names[shell_se_ind] = 'S'
 atom_names_coreshell=atom_names[coreshell_ind]
+
 
 
 

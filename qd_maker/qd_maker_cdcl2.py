@@ -395,6 +395,7 @@ underc_cd_ind_lg4 = get_underc_ind_large(ind_cscd,underc_cd_ind_lg4_temp)
 # all_dists,cdse_dists,cdlig_dists,cdselig_dists,secd_dists = get_dists(xyzcoords,atom_names=='Cd',atom_names=="Se",atom_names=='N')
 dist_uccd_tos=dist_atom12(all_dists, underc_cd_ind_lg4,atom_names=='Se')
 s_nn_ind = dist_uccd_tos<3.0
+
 test2=np.any(s_nn_ind,axis=0) # smaller than cd_nn_ind b/c some Cd are nn of two Se
 s_nn_ind1 = get_underc_ind_large(atom_names=='Se',test2)
 print("Number of S that are NN to UC Cd:", np.count_nonzero(s_nn_ind1))
